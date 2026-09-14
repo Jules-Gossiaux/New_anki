@@ -24,6 +24,8 @@ Temporal data is explicit: event timestamps such as `created_at`, `updated_at` a
 
 SQLite is the proposed local store because it gives transactions, migrations, indexes and a future sync-friendly relational model. Repositories own SQL. Schema changes are numbered migrations and tested from a clean database and from the previous migration.
 
+The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`.
+
 ## Scheduler
 
 The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. It must use a pinned mature FSRS implementation, with contract tests around learning steps, reviews, lapses, intervals and due boundaries. A review transaction persists the decision and log atomically.
