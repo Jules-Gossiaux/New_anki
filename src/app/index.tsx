@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -31,6 +32,7 @@ function flattenDecks(decks: Deck[]): VisibleDeck[] {
 
 export default function DecksScreen() {
   const db = useSQLiteContext();
+  const router = useRouter();
   const repository = useMemo(() => new DeckRepository(db), [db]);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -113,7 +115,9 @@ export default function DecksScreen() {
           <View style={[styles.deckRow, { paddingLeft: 18 + item.depth * 24 }]}>
             <Pressable
               style={styles.deckCopy}
-              onPress={() => openEdit(item)}
+              onPress={() =>
+                router.push({ pathname: '/deck/[deckId]', params: { deckId: item.id } })
+              }
               accessibilityRole="button"
             >
               <Text style={styles.deckName}>{item.name}</Text>
@@ -122,6 +126,12 @@ export default function DecksScreen() {
               </Text>
             </Pressable>
             <View style={styles.deckActions}>
+              <Pressable
+                accessibilityLabel={`Modifier ${item.name}`}
+                onPress={() => openEdit(item)}
+              >
+                <Text style={styles.actionText}>Modifier</Text>
+              </Pressable>
               <Pressable
                 accessibilityLabel={`Ajouter un sous-deck à ${item.name}`}
                 onPress={() => openCreate(item.id)}

@@ -17,6 +17,8 @@ export type CreateNoteInput = {
   extra?: string | null;
 };
 
+export type UpdateNoteInput = CreateNoteInput;
+
 export function assertNoteContent(value: string, field: 'front' | 'back'): string {
   const normalized = value.trim();
   if (normalized.length === 0) {

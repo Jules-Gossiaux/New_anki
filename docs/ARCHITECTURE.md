@@ -26,6 +26,8 @@ SQLite is the proposed local store because it gives transactions, migrations, in
 
 The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`.
 
+Note creation and card creation are orchestrated by an application use case and committed in one SQLite transaction. Repositories remain responsible for SQL and mapping persistence rows to domain types; the UI does not access SQL directly. Cards currently expose a neutral `new` state and no scheduling behavior until the FSRS adapter is introduced.
+
 ## Scheduler
 
 The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. It must use a pinned mature FSRS implementation, with contract tests around learning steps, reviews, lapses, intervals and due boundaries. A review transaction persists the decision and log atomically.
