@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added a redesigned deck management UI based on the product wireframe: card-based decks, clear primary actions, pencil editing, nested-deck affordance and settings FAB.
+- Added a deck screen UI test for the empty state and primary actions.
 - Added note and basic-card domain models and repositories.
 - Added transactional note-plus-card creation through an application use case.
 - Added deck detail UI with card creation and vocabulary preview.
