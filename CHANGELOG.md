@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Clarified the distinction between UTC event timestamps and scheduling due-date semantics.
+- Synchronized documented branch conventions with the agent workflow.
+
 ### Added
 
 - Initialized Expo SDK 57, React Native, TypeScript and Expo Router shell.
