@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -119,24 +120,29 @@ export default function DeckDetailScreen() {
         </View>
 
         <View style={styles.content}>
-          {cards.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>＋</Text>
-              <Text style={styles.emptyTitle}>Aucune carte pour le moment</Text>
-              <Text style={styles.emptyText}>
-                Ajoutez votre premier mot pour commencer votre collection.
-              </Text>
-              <Pressable style={styles.emptyButton} onPress={() => setModalVisible(true)}>
-                <Text style={styles.emptyButtonText}>Ajouter une carte</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.cardList}>
-              {cards.map((card) => (
-                <VocabularyCard key={card.id} card={card} onDelete={() => deleteCard(card)} />
-              ))}
-            </View>
-          )}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {cards.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>＋</Text>
+                <Text style={styles.emptyTitle}>Aucune carte pour le moment</Text>
+                <Text style={styles.emptyText}>
+                  Ajoutez votre premier mot pour commencer votre collection.
+                </Text>
+                <Pressable style={styles.emptyButton} onPress={() => setModalVisible(true)}>
+                  <Text style={styles.emptyButtonText}>Ajouter une carte</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.cardList}>
+                {cards.map((card) => (
+                  <VocabularyCard key={card.id} card={card} onDelete={() => deleteCard(card)} />
+                ))}
+              </View>
+            )}
+          </ScrollView>
         </View>
       </View>
 
@@ -241,6 +247,7 @@ const styles = StyleSheet.create({
   summaryTitle: { color: '#14213D', fontSize: 19, fontWeight: '800' },
   summaryCount: { color: '#667085', fontSize: 13, fontWeight: '600' },
   content: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingBottom: 28 },
   cardList: { gap: 14, paddingBottom: 28 },
   vocabularyCard: {
     backgroundColor: '#FFFFFF',
