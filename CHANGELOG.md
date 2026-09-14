@@ -17,6 +17,7 @@
 
 - Added Metro WebAssembly asset configuration required for Expo SQLite web export.
 - Native SQLite integration still requires validation in an Android/iOS development build.
+- Android manual validation completed for deck persistence and nested deck management on 2026-09-14.
 
 ### Changed
 
@@ -26,5 +27,5 @@
 ### Known limitations
 
 - Cards, FSRS scheduling, review history, full note editing and import/export are not implemented yet.
-- Native Android/iOS SQLite integration still requires device/development-build validation.
+- Native iOS SQLite integration still requires device/development-build validation.
 - The Expo scaffold reports npm audit warnings that must be reviewed before release; no automatic force-fix was applied.
