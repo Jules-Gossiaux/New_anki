@@ -37,4 +37,22 @@ describe('CardRepository', () => {
       expect.anything(),
     );
   });
+
+  it('soft deletes a card', async () => {
+    const db: DatabaseClient = {
+      execAsync: jest.fn(),
+      runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
+      getAllAsync: jest.fn(),
+      getFirstAsync: jest.fn(),
+    };
+
+    await new CardRepository(db).remove('card-id');
+
+    expect(db.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE cards SET deleted_at'),
+      expect.anything(),
+      expect.anything(),
+      'card-id',
+    );
+  });
 });
