@@ -139,7 +139,11 @@ export class CardRepository {
     return rows.map(toCard);
   }
 
-  public async listDueForStudy(deckId: string, now: Date): Promise<Card[]> {
+  public async listStudyQueue(deckId: string, now: Date): Promise<Card[]> {
+    const todayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const tomorrowStart = new Date(todayStart.getTime() + 86400000).toISOString();
     const today = Math.floor(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000,
     );
@@ -160,7 +164,7 @@ export class CardRepository {
        WHERE cards.deleted_at IS NULL AND notes.deleted_at IS NULL
          AND (
            cards.state = 0
-           OR (cards.state IN (1, 3) AND cards.due_at IS NOT NULL AND cards.due_at <= ?)
+           OR (cards.state IN (1, 3) AND cards.due_at IS NOT NULL AND cards.due_at < ?)
            OR (cards.state = 2 AND cards.due_day IS NOT NULL AND cards.due_day <= ?)
          )
        ORDER BY
@@ -171,14 +175,13 @@ export class CardRepository {
            WHEN cards.state = 2 THEN 1
            ELSE 2
          END,
-         COALESCE(cards.due_day, ?), COALESCE(cards.due_at, '9999-12-31T23:59:59.999Z'),
+         COALESCE(cards.due_at, '9999-12-31T23:59:59.999Z'), COALESCE(cards.due_day, 2147483647),
          cards.created_at ASC`,
       deckId,
-      now.toISOString(),
+      tomorrowStart,
       today,
       today,
       now.toISOString(),
-      today,
     );
     return rows.map(toCard);
   }

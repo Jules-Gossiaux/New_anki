@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
+import {
+  isShortTermDueToday,
+  isStudyCardAvailable,
+  orderStudyQueue,
+} from '../../application/studyQueue';
 import type { Card, ReviewRating } from '../../domain/cards';
 import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
@@ -35,10 +40,19 @@ export default function StudyScreen() {
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
-  const [nextDueAt, setNextDueAt] = useState<string | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
-  const card = cards[0];
+  const now = new Date(clock);
+  const card = cards.find((candidate) => isStudyCardAvailable(candidate, now));
+  const nextFutureCard = orderStudyQueue(cards).find(
+    (candidate) =>
+      (candidate.state === 1 || candidate.state === 3) &&
+      candidate.dueAt !== null &&
+      new Date(candidate.dueAt).getTime() > now.getTime(),
+  );
+  const remainingSeconds = nextFutureCard
+    ? Math.max(0, Math.ceil((new Date(nextFutureCard.dueAt as string).getTime() - clock) / 1000))
+    : 0;
 
   const load = useCallback(async () => {
     if (!deckId) return;
@@ -48,9 +62,8 @@ export default function StudyScreen() {
       return;
     }
     setDeckName(deck.name);
-    const dueCards = await cardRepository.listDueForStudy(deckId, new Date());
+    const dueCards = await cardRepository.listStudyQueue(deckId, new Date());
     setCards(dueCards);
-    setPreviews(dueCards[0] ? scheduler.preview(dueCards[0], new Date()) : null);
     setRevealed(false);
   }, [cardRepository, db, deckId, router, scheduler]);
 
@@ -59,29 +72,26 @@ export default function StudyScreen() {
   }, [load]);
 
   useEffect(() => {
-    if (!nextDueAt) return undefined;
-    const refresh = () => {
-      const seconds = Math.max(0, Math.ceil((new Date(nextDueAt).getTime() - Date.now()) / 1000));
-      setRemainingSeconds(seconds);
-      if (seconds === 0) {
-        setNextDueAt(null);
-        void load();
-      }
-    };
-    refresh();
-    const timer = setInterval(refresh, 1000);
+    const timer = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [load, nextDueAt]);
+  }, []);
+
+  useEffect(() => {
+    setPreviews(card ? scheduler.preview(card, now) : null);
+  }, [card?.id, now.getTime(), scheduler]);
 
   const submitRating = async (rating: ReviewRating) => {
     if (!card || isSubmitting) return;
     setSubmitting(true);
     try {
       const result = await new ReviewCard(db, scheduler).execute(card.id, rating);
-      if (result.decision.state === 1 || result.decision.state === 3) {
-        setNextDueAt(result.decision.dueAt);
-      }
-      await load();
+      const updatedCard: Card = { ...card, ...result.decision };
+      setCards((current) => {
+        const remaining = current.filter((candidate) => candidate.id !== card.id);
+        if (isShortTermDueToday(updatedCard, new Date())) remaining.push(updatedCard);
+        return orderStudyQueue(remaining);
+      });
+      setRevealed(false);
     } catch (error) {
       Alert.alert(
         'Impossible d’enregistrer la révision',
@@ -110,7 +120,7 @@ export default function StudyScreen() {
 
         {!card ? (
           <View style={styles.empty}>
-            {nextDueAt ? (
+            {nextFutureCard ? (
               <>
                 <Text style={styles.emptyTitle}>Prochaine carte dans {remainingSeconds}s</Text>
                 <Text style={styles.emptyText}>
