@@ -1,0 +1,21 @@
+import type { CreateNoteInput } from '../domain/notes';
+import { CardRepository } from '../infrastructure/repositories/cardRepository';
+import type { DatabaseClient } from '../infrastructure/database/client';
+import { NoteRepository } from '../infrastructure/repositories/noteRepository';
+
+export class CreateVocabularyCard {
+  public constructor(private readonly db: DatabaseClient) {}
+
+  public async execute(deckId: string, input: CreateNoteInput) {
+    await this.db.execAsync('BEGIN IMMEDIATE;');
+    try {
+      const note = await new NoteRepository(this.db).create(input);
+      const card = await new CardRepository(this.db).create({ noteId: note.id, deckId });
+      await this.db.execAsync('COMMIT;');
+      return { note, card };
+    } catch (error) {
+      await this.db.execAsync('ROLLBACK;');
+      throw error;
+    }
+  }
+}
