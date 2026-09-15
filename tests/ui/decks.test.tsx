@@ -7,6 +7,7 @@ jest.mock('expo-sqlite', () => ({
 }));
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (callback: () => void) => callback(),
   useRouter: () => ({ push: jest.fn() }),
 }));
 

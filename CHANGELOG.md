@@ -4,6 +4,13 @@
 
 ### Added
 
+- Aligned card-editor colors and statuses with the scheduling categories: blue for new cards, red for cards scheduled today, and green for cards scheduled after today.
+- Added the first study flow with new/due card selection across nested decks, answer reveal, Again/Hard/Good/Easy ratings and atomic FSRS review persistence.
+- Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.
+- Added FSRS due-time previews below the review buttons and automatic reappearance of short-term learning cards when due.
+- Kept all short-term learning cards scheduled for today in the active study queue while excluding cards scheduled for tomorrow; cards become selectable at their exact due time and retain due-time ordering.
+- Updated study selection so future cards from today are offered early only after all currently available cards are exhausted; tomorrow's cards remain excluded.
+
 - Added a redesigned deck management UI based on the product wireframe: card-based decks, clear primary actions, pencil editing, nested-deck affordance and settings FAB.
 - Added a deck screen UI test for the empty state and primary actions.
 - Refined the card-management screen to match the deck-list visual language and added confirmed card deletion.
@@ -34,6 +41,6 @@
 
 ### Known limitations
 
-- Cards, FSRS scheduling, review history, full note editing and import/export are not implemented yet.
+- Full note editing, CSV/Anki import-export and `.apkg` compatibility remain incomplete.
 - Native iOS SQLite integration still requires device/development-build validation.
 - The Expo scaffold reports npm audit warnings that must be reviewed before release; no automatic force-fix was applied.

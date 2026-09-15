@@ -4,7 +4,7 @@ Vocabulary is a mobile-first vocabulary learning app aiming to combine Anki's te
 
 ## Status
 
-Phase 0 foundation initialized. The Expo shell, project rules, architecture proposal, test/tooling setup and platform feasibility investigation are in place. The learning engine and database are not implemented yet.
+Phase A is in progress. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, FSRS scheduling, review history and the first study/review flow are in place. Decks, notes and basic cards can be created, persisted, displayed and deleted through Android-tested management flows. The remaining Phase A work includes revision settings, full note editing, tags/templates UX, staged import/export and broader compatibility validation.
 
 ## Quick start
 
@@ -28,10 +28,10 @@ npm run format:check
 
 ## Structure
 
-`src/app` contains Expo Router routes. `src/domain` will contain platform-independent vocabulary and scheduling logic. `src/application` will orchestrate use cases. `src/infrastructure` will contain SQLite, repositories and import/export adapters. `src/ui` will contain reusable UI and design-system code. Tests should live beside modules or under `tests/` when cross-module.
+`src/app` contains Expo Router routes. `src/domain` contains platform-independent vocabulary and scheduler contracts. `src/application` orchestrates use cases. `src/infrastructure` contains SQLite, repositories, and the FSRS and import/export adapters. `src/ui` will contain reusable UI and design-system code. Tests should live beside modules or under `tests/` when cross-module.
 
 Read [AGENTS.md](AGENTS.md) before coding. The architecture and staged plan are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), with workflow and testing guidance in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ## Important limitations
 
-Full Anki `.apkg` import/export is planned but not implemented. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook.
+Revision settings, full note editing, tags/templates UX and full Anki `.apkg` import/export are not implemented yet. CSV convenience import/export is not available either, so no Anki compatibility claim is made. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but has not yet been validated on a real device.
