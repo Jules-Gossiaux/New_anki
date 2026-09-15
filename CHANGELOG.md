@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added pastel card colors and status badges for new, not-known and known cards.
 - Added the first study flow with new/due card selection across nested decks, answer reveal, Again/Hard/Good/Easy ratings and atomic FSRS review persistence.
 - Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.
 - Added FSRS due-time previews below the review buttons and automatic reappearance of short-term learning cards when due.
