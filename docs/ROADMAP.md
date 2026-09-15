@@ -16,7 +16,7 @@ Accessible mobile study UX, restrained motion, progress and review friction redu
 
 Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks, basic note/card creation and deletion, pinned FSRS scheduling, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, and consistent blue/new, red/today and green/future card categories.
 
-Still required before declaring Phase A complete: revision settings, full note/card editing, tags and template management UX, staged Anki import/export with fixtures and media handling, broader Android regression validation, and real-device iOS validation.
+Still required before declaring Phase A complete: revision settings, full note/card editing, tags and template management UX, staged Anki import/export with fixtures and media handling, and broader Android regression validation. iOS device validation is deliberately outside the MVP acceptance criteria.
 
 ## Later versions
 
