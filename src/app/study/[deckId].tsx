@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
 import type { Card, ReviewRating } from '../../domain/cards';
+import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
@@ -16,17 +17,27 @@ const ratings: { label: string; value: ReviewRating; color: string }[] = [
   { label: 'Easy', value: 'easy', color: '#1687F8' },
 ];
 
+function formatDue(iso: string, now = new Date()): string {
+  const minutes = Math.max(1, Math.ceil((new Date(iso).getTime() - now.getTime()) / 60000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.ceil(hours / 24)}j`;
+}
+
 export default function StudyScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
+  const scheduler = useMemo(() => new FsrsScheduler(), []);
   const [deckName, setDeckName] = useState('Étude');
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [nextDueAt, setNextDueAt] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
   const card = cards[0];
 
   const load = useCallback(async () => {
@@ -37,9 +48,11 @@ export default function StudyScreen() {
       return;
     }
     setDeckName(deck.name);
-    setCards(await cardRepository.listDueForStudy(deckId, new Date()));
+    const dueCards = await cardRepository.listDueForStudy(deckId, new Date());
+    setCards(dueCards);
+    setPreviews(dueCards[0] ? scheduler.preview(dueCards[0], new Date()) : null);
     setRevealed(false);
-  }, [cardRepository, db, deckId, router]);
+  }, [cardRepository, db, deckId, router, scheduler]);
 
   useEffect(() => {
     void load();
@@ -64,7 +77,7 @@ export default function StudyScreen() {
     if (!card || isSubmitting) return;
     setSubmitting(true);
     try {
-      const result = await new ReviewCard(db, new FsrsScheduler()).execute(card.id, rating);
+      const result = await new ReviewCard(db, scheduler).execute(card.id, rating);
       if (result.decision.state === 1 || result.decision.state === 3) {
         setNextDueAt(result.decision.dueAt);
       }
@@ -137,6 +150,9 @@ export default function StudyScreen() {
                     onPress={() => void submitRating(item.value)}
                     disabled={isSubmitting}
                   >
+                    <Text style={[styles.ratingDue, { color: item.color }]}>
+                      {previews ? formatDue(previews[item.value].dueAt) : ''}
+                    </Text>
                     <Text style={[styles.ratingText, { color: item.color }]}>{item.label}</Text>
                   </Pressable>
                 ))}
@@ -174,6 +190,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   ratingText: { fontSize: 14, fontWeight: '800' },
+  ratingDue: { fontSize: 13, marginBottom: 4 },
   empty: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingBottom: 80 },
   emptyIcon: { color: '#12B76A', fontSize: 42, marginBottom: 14 },
   emptyTitle: { color: '#14213D', fontSize: 23, fontWeight: '800', textAlign: 'center' },

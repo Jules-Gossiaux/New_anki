@@ -39,6 +39,7 @@ describe('ReviewCard', () => {
       getFirstAsync: async <T>() => card as T,
     };
     const scheduler: Scheduler = {
+      preview: jest.fn(),
       schedule: jest.fn(() => ({
         state: CARD_STATES.learning,
         dueAt: '2026-09-15T08:10:00.000Z',

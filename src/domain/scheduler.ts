@@ -26,6 +26,9 @@ export type SchedulingDecision = {
   };
 };
 
+export type SchedulingPreview = Record<ReviewRating, { dueAt: string; scheduledDays: number }>;
+
 export interface Scheduler {
+  preview(card: Card, now: Date): SchedulingPreview;
   schedule(card: Card, rating: ReviewRating, now: Date): SchedulingDecision;
 }
