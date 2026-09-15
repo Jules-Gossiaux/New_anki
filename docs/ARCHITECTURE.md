@@ -1,4 +1,4 @@
-# Architecture proposal
+# Architecture
 
 ## Default shape
 
@@ -20,7 +20,7 @@ The UI calls application use cases. Use cases depend on domain ports and reposit
 
 Stable UUIDs identify decks, notes, cards, templates and review logs. Decks use a nullable `parent_id` plus an ordering field. A note owns vocabulary content/tags; cards are generated from a note/template and own scheduling state. Review logs are append-only and record the scheduler input, rating, resulting state/interval, timestamps and app/schema versions.
 
-Temporal data is explicit: event timestamps such as `created_at`, `updated_at` and `reviewed_at` are UTC instants, while a card's due value follows the selected FSRS implementation's contract and may represent a scheduling instant, a calendar day or a local-day boundary. The representation, unit and timezone context are documented in the schema and tested around midnight, timezone changes and daylight-saving transitions.
+Temporal data is explicit: event timestamps such as `created_at`, `updated_at` and `reviewed_at` are UTC instants. `due_at` stores the exact UTC instant returned by FSRS; `due_day` stores a UTC calendar-day ordinal for day-based review selection. This is deterministic for the current MVP, but local-day and travel/timezone behavior still needs a dedicated product and migration decision before broader compatibility claims.
 
 SQLite is the proposed local store because it gives transactions, migrations, indexes and a future sync-friendly relational model. Repositories own SQL. Schema changes are numbered migrations and tested from a clean database and from the previous migration.
 

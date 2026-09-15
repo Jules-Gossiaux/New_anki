@@ -16,3 +16,5 @@ Every bug should receive a regression test where practical. Scheduler tests must
 On 2026-09-14, the current Phase A foundation was manually validated on Android. Deck creation, persistence across relaunch, renaming, nested decks, moving and conservative deletion behaved correctly. The local typecheck, Jest suite, ESLint and Prettier checks also passed. Native iOS validation remains pending because the current development environment is Windows-based.
 
 On 2026-09-15, card management was manually validated on Android. Card creation, persistence after relaunch, confirmed deletion and scrolling through a deck containing more cards than fit on screen behaved correctly.
+
+On 2026-09-15, the study and FSRS flow was validated by automated tests: all four ratings, persisted scheduler state, review-log atomicity and migration behavior passed. Manual Android validation of deck-to-study navigation, nested-deck study selection, displayed due times and delayed reappearance remains the next validation step. Native iOS validation remains pending.

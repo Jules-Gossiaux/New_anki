@@ -4,13 +4,13 @@
 
 Expo provides a productive native app baseline and development-build path while React Native supports Android/iOS sharing. TypeScript is used for domain contracts and safer refactoring.
 
-## ADR-0002 — Local-first SQLite (proposed)
+## ADR-0002 — Local-first SQLite (accepted)
 
-SQLite is proposed for transactional local persistence, migrations, indexes and a relational shape suitable for later synchronization. Backend and account infrastructure are intentionally postponed.
+SQLite provides transactional local persistence, migrations, indexes and a relational shape suitable for later synchronization. Backend and account infrastructure are intentionally postponed.
 
-## ADR-0003 — Isolated FSRS scheduler (proposed)
+## ADR-0003 — Isolated FSRS scheduler (accepted)
 
-Scheduling is a platform-independent module behind an application port so it can be tested independently and cannot be coupled to screens or SQL. Use a pinned mature implementation rather than inventing an algorithm.
+Scheduling is a platform-independent module behind an application port so it can be tested independently and cannot be coupled to screens or SQL. The current implementation uses the pinned `ts-fsrs` 5.4.2 package with deterministic fuzzing disabled; the adapter remains replaceable behind the scheduler contract.
 
 ## ADR-0004 — Staged `.apkg` compatibility (accepted)
 

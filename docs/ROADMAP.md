@@ -1,12 +1,12 @@
 # Roadmap
 
-## Phase 0 — foundation (current)
+## Phase 0 — foundation (complete)
 
 Documentation, Expo shell, TypeScript, navigation, quality scripts, agent workflow and platform feasibility investigation.
 
-## Phase A — Anki-compatible foundation
+## Phase A — Anki-compatible foundation (current)
 
-Schema/migrations, repositories, nested decks, notes/cards/templates, validation, settings, mature FSRS integration, review history, study use cases and staged `.apkg` compatibility.
+Schema/migrations, repositories, nested decks, notes/cards/templates, validation, settings, pinned FSRS integration, review history and the first study use case are implemented. Full note editing and staged `.apkg` compatibility remain open.
 
 ## Phase B — first product innovations
 
