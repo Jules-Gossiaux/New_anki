@@ -12,6 +12,12 @@ Schema/migrations, repositories, nested decks, notes/cards/templates, validation
 
 Accessible mobile study UX, restrained motion, progress and review friction reduction. Build a native capability spike for notifications, Android usage access and iOS Device Activity before selecting an intervention product shape.
 
+## Phase A completion audit
+
+Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks, basic note/card creation and deletion, pinned FSRS scheduling, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, and consistent blue/new, red/today and green/future card categories.
+
+Still required before declaring Phase A complete: revision settings, full note/card editing, tags and template management UX, staged Anki import/export with fixtures and media handling, broader Android regression validation, and real-device iOS validation.
+
 ## Later versions
 
 Contextual phrases, fill-in-the-blank and challenges using the same learning engine where appropriate; AI examples/explanations; accounts, sync and conflict resolution.

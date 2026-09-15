@@ -28,6 +28,8 @@ The initial schema is implemented through Expo SQLite and currently contains `de
 
 Note creation and card creation are orchestrated by an application use case and committed in one SQLite transaction. Repositories remain responsible for SQL and mapping persistence rows to domain types; the UI does not access SQL directly. New cards expose a neutral `new` state until their first review, after which the isolated FSRS adapter persists the resulting scheduling state and review log atomically.
 
+The card editor derives its display category from the same UTC scheduling semantics as deck counters: new cards are blue, non-new cards scheduled today are red, and cards scheduled after today are green. This presentation logic does not alter FSRS state.
+
 ## Scheduler
 
 The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. The current adapter uses the pinned `ts-fsrs` 5.4.2 implementation with fuzzing disabled for deterministic behavior. Review timestamps are UTC instants; review cards retain an exact UTC due timestamp and a UTC calendar-day ordinal for day-based selection. A review transaction persists the decision and append-only log atomically. A study session loads all cards whose due date belongs to the current UTC day, including future short-term learning cards, but normally presents currently available cards first. Once those are exhausted, it presents the nearest future card from the same UTC day in due-time order. Cards scheduled for the next day are excluded from the session.

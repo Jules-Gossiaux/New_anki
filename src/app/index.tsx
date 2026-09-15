@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -56,9 +56,11 @@ export default function DecksScreen() {
     setStudyCounts(Object.fromEntries(counts));
   }, [cardRepository, repository]);
 
-  useEffect(() => {
-    void loadDecks();
-  }, [loadDecks]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadDecks();
+    }, [loadDecks]),
+  );
 
   const visibleDecks = useMemo(() => flattenDecks(decks), [decks]);
 

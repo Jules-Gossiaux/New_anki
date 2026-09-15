@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import type { Card } from '../../domain/cards';
+import { getCardDisplayStatus, type CardDisplayStatus } from '../../domain/cardStatus';
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 
@@ -48,9 +49,11 @@ export default function DeckDetailScreen() {
     setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
   }, [cardRepository, db, deckId, router]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const closeModal = () => {
     setModalVisible(false);
@@ -204,24 +207,22 @@ export default function DeckDetailScreen() {
 }
 
 function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }) {
+  const status = getCardDisplayStatus(card, new Date());
+
   return (
-    <View style={styles.vocabularyCard}>
+    <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
       <View style={styles.cardTopRow}>
-        <View style={styles.cardBadge}>
-          <Text style={styles.cardBadgeText}>
-            {card.state === 0
-              ? 'NOUVELLE'
-              : card.state === 1 || card.state === 3
-                ? 'APPRENTISSAGE'
-                : 'À RÉVISER'}
+        <View style={[styles.cardBadge, stylesByStatus[status].badge]}>
+          <Text style={[styles.cardBadgeText, stylesByStatus[status].badgeText]}>
+            {statusLabels[status]}
           </Text>
         </View>
         <Pressable onPress={onDelete} accessibilityLabel={`Supprimer ${card.front}`} hitSlop={8}>
           <Text style={styles.deleteIcon}>•••</Text>
         </Pressable>
       </View>
-      <Text style={styles.front}>{card.front}</Text>
-      <View style={styles.divider} />
+      <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <View style={[styles.divider, stylesByStatus[status].divider]} />
       <Text style={styles.back}>{card.back}</Text>
       <Pressable style={styles.cardDeleteAction} onPress={onDelete} accessibilityRole="button">
         <Text style={styles.cardDeleteText}>Supprimer la carte</Text>
@@ -229,6 +230,39 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
     </View>
   );
 }
+
+const statusLabels: Record<CardDisplayStatus, string> = {
+  new: 'NOUVELLE',
+  today: 'À RÉVISER',
+  future: 'À VENIR',
+};
+
+const stylesByStatus: Record<
+  CardDisplayStatus,
+  { card: object; badge: object; badgeText: object; front: object; divider: object }
+> = {
+  new: {
+    card: { backgroundColor: '#F8FBFF', borderColor: '#CFE5FF' },
+    badge: { backgroundColor: '#EAF4FF' },
+    badgeText: { color: '#1674D1' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#DDEEFF' },
+  },
+  today: {
+    card: { backgroundColor: '#FFF8F7', borderColor: '#F5C5C0' },
+    badge: { backgroundColor: '#FEECEC' },
+    badgeText: { color: '#B42318' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#F9D9D5' },
+  },
+  future: {
+    card: { backgroundColor: '#F5FCF8', borderColor: '#B7E4C7' },
+    badge: { backgroundColor: '#E7F7ED' },
+    badgeText: { color: '#087443' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#D4F0DD' },
+  },
+};
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: '#F7F9FC', flex: 1 },

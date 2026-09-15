@@ -18,3 +18,7 @@ On 2026-09-14, the current Phase A foundation was manually validated on Android.
 On 2026-09-15, card management was manually validated on Android. Card creation, persistence after relaunch, confirmed deletion and scrolling through a deck containing more cards than fit on screen behaved correctly.
 
 On 2026-09-15, the study and FSRS flow was validated by automated tests: all four ratings, persisted scheduler state, review-log atomicity and migration behavior passed. On 2026-09-16, automated study-queue tests covered future short-term cards scheduled today, exclusion of tomorrow's cards, exact due-time availability, due-order preservation, early selection only after currently available cards are exhausted, and retention of cards reprogrammed later on the same day. Manual Android validation of deck-to-study navigation, nested-deck study selection, displayed due times and delayed reappearance remains the next validation step. Native iOS validation remains pending.
+
+On 2026-09-16, card-editor status categories were covered by unit tests for new cards, cards scheduled later today and cards scheduled after today. The editor and deck list use the same UTC scheduling classification. Manual Android validation of returning from study to both screens is still required; the current fix reloads both screens on navigation focus.
+
+Phase A is not yet complete: settings, full note editing, tags/templates UX and staged Anki import/export still require implementation and dedicated tests.
