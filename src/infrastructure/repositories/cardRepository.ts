@@ -26,10 +26,9 @@ type CardRow = {
 
 export type StudyCounts = {
   total: number;
-  due: number;
   new: number;
-  learning: number;
-  review: number;
+  today: number;
+  future: number;
 };
 
 function toCard(row: CardRow): Card {
@@ -200,22 +199,32 @@ export class CardRepository {
        SELECT
          COUNT(*) AS total,
          SUM(CASE WHEN cards.state = 0 THEN 1 ELSE 0 END) AS new,
-         SUM(CASE WHEN cards.state IN (1, 3) AND cards.due_at IS NOT NULL AND cards.due_at <= ? THEN 1 ELSE 0 END) AS learning,
-         SUM(CASE WHEN cards.state = 2 AND cards.due_day IS NOT NULL AND cards.due_day <= ? THEN 1 ELSE 0 END) AS review
+         SUM(CASE WHEN cards.state <> 0 AND (
+           (cards.state IN (1, 3) AND cards.due_at IS NOT NULL AND cards.due_at < ?)
+           OR (cards.state = 2 AND cards.due_day IS NOT NULL AND cards.due_day <= ?)
+         ) THEN 1 ELSE 0 END) AS today,
+         SUM(CASE WHEN cards.state <> 0 AND (
+           (cards.state IN (1, 3) AND cards.due_at IS NOT NULL AND cards.due_at >= ?)
+           OR (cards.state = 2 AND cards.due_day IS NOT NULL AND cards.due_day > ?)
+         ) THEN 1 ELSE 0 END) AS future
        FROM cards JOIN notes ON notes.id = cards.note_id
        JOIN descendants ON descendants.id = cards.deck_id
        WHERE cards.deleted_at IS NULL AND notes.deleted_at IS NULL`,
       deckId,
+      new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+      ).toISOString(),
+      today,
       now.toISOString(),
       today,
     );
     const counts = {
       total: row?.total ?? 0,
       new: row?.new ?? 0,
-      learning: row?.learning ?? 0,
-      review: row?.review ?? 0,
+      today: row?.today ?? 0,
+      future: row?.future ?? 0,
     };
-    return { ...counts, due: counts.new + counts.learning + counts.review };
+    return counts;
   }
 
   public async applyScheduling(

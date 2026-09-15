@@ -1,7 +1,8 @@
 import {
-  isShortTermDueToday,
+  isScheduledToday,
   isStudyCardAvailable,
   orderStudyQueue,
+  selectNextStudyCard,
 } from '../../src/application/studyQueue';
 import { CARD_STATES, type Card } from '../../src/domain/cards';
 
@@ -36,8 +37,8 @@ describe('studyQueue', () => {
     const today = card('today', CARD_STATES.learning, '2026-09-16T08:01:00.000Z');
     const tomorrow = card('tomorrow', CARD_STATES.learning, '2026-09-17T08:01:00.000Z');
 
-    expect(isShortTermDueToday(today, now)).toBe(true);
-    expect(isShortTermDueToday(tomorrow, now)).toBe(false);
+    expect(isScheduledToday(today, now)).toBe(true);
+    expect(isScheduledToday(tomorrow, now)).toBe(false);
     expect(isStudyCardAvailable(today, now)).toBe(false);
     expect(orderStudyQueue([tomorrow, today]).map((item) => item.id)).toEqual([
       'today',
@@ -48,5 +49,25 @@ describe('studyQueue', () => {
   it('makes a short-term card available at its exact due time', () => {
     const today = card('today', CARD_STATES.learning, '2026-09-16T08:01:00.000Z');
     expect(isStudyCardAvailable(today, new Date('2026-09-16T08:01:00.000Z'))).toBe(true);
+  });
+
+  it('selects the nearest future card early when no card is currently available', () => {
+    const sixMinutes = card('six-minutes', CARD_STATES.learning, '2026-09-16T08:06:00.000Z');
+    const oneMinute = card('one-minute', CARD_STATES.learning, '2026-09-16T08:01:00.000Z');
+
+    const selection = selectNextStudyCard([sixMinutes, oneMinute], now);
+
+    expect(selection.card?.id).toBe('one-minute');
+    expect(selection.isEarly).toBe(true);
+  });
+
+  it('prioritizes currently available cards before early cards', () => {
+    const available = card('available', CARD_STATES.new, null);
+    const future = card('future', CARD_STATES.learning, '2026-09-16T08:01:00.000Z');
+
+    const selection = selectNextStudyCard([future, available], now);
+
+    expect(selection.card?.id).toBe('available');
+    expect(selection.isEarly).toBe(false);
   });
 });

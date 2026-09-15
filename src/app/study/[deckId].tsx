@@ -5,9 +5,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
 import {
-  isShortTermDueToday,
-  isStudyCardAvailable,
+  isScheduledToday,
   orderStudyQueue,
+  selectNextStudyCard,
 } from '../../application/studyQueue';
 import type { Card, ReviewRating } from '../../domain/cards';
 import type { SchedulingPreview } from '../../domain/scheduler';
@@ -43,16 +43,10 @@ export default function StudyScreen() {
   const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
   const now = new Date(clock);
-  const card = cards.find((candidate) => isStudyCardAvailable(candidate, now));
-  const nextFutureCard = orderStudyQueue(cards).find(
-    (candidate) =>
-      (candidate.state === 1 || candidate.state === 3) &&
-      candidate.dueAt !== null &&
-      new Date(candidate.dueAt).getTime() > now.getTime(),
-  );
-  const remainingSeconds = nextFutureCard
-    ? Math.max(0, Math.ceil((new Date(nextFutureCard.dueAt as string).getTime() - clock) / 1000))
-    : 0;
+  const selection = selectNextStudyCard(cards, now);
+  const card = selection.card;
+  const nextFutureCard = selection.isEarly ? card : undefined;
+  const remainingSeconds = 0;
 
   const load = useCallback(async () => {
     if (!deckId) return;
@@ -88,7 +82,7 @@ export default function StudyScreen() {
       const updatedCard: Card = { ...card, ...result.decision };
       setCards((current) => {
         const remaining = current.filter((candidate) => candidate.id !== card.id);
-        if (isShortTermDueToday(updatedCard, new Date())) remaining.push(updatedCard);
+        if (isScheduledToday(updatedCard, new Date())) remaining.push(updatedCard);
         return orderStudyQueue(remaining);
       });
       setRevealed(false);
@@ -141,6 +135,7 @@ export default function StudyScreen() {
         ) : (
           <View style={styles.studyArea}>
             <Pressable style={styles.card} onPress={() => setRevealed((value) => !value)}>
+              {selection.isEarly && <Text style={styles.earlyLabel}>PRÉVUE AUJOURD’HUI</Text>}
               <Text style={styles.front}>{card.front}</Text>
               {revealed ? (
                 <>
@@ -187,6 +182,13 @@ const styles = StyleSheet.create({
   studyArea: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
   card: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
   front: { color: '#14213D', fontSize: 42, fontWeight: '800', textAlign: 'center' },
+  earlyLabel: {
+    color: '#D92D20',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 24,
+  },
   divider: { backgroundColor: '#D0D5DD', height: 1, marginVertical: 28, width: '65%' },
   back: { color: '#475467', fontSize: 28, fontWeight: '600', textAlign: 'center' },
   prompt: { color: '#98A2B3', fontSize: 15, marginTop: 92, textAlign: 'center' },

@@ -28,10 +28,9 @@ export default function DeckDetailScreen() {
   const [cards, setCards] = useState<Card[]>([]);
   const [studyCounts, setStudyCounts] = useState<StudyCounts>({
     total: 0,
-    due: 0,
     new: 0,
-    learning: 0,
-    review: 0,
+    today: 0,
+    future: 0,
   });
   const [isModalVisible, setModalVisible] = useState(false);
   const [front, setFront] = useState('');
@@ -126,8 +125,8 @@ export default function DeckDetailScreen() {
             <Text style={styles.summaryCount}>{cards.length} total</Text>
             <Text style={styles.dueCount}>
               <Text style={styles.newCount}>{studyCounts.new}</Text>
-              <Text style={styles.learningCount}> {studyCounts.learning}</Text>
-              <Text style={styles.reviewCount}> {studyCounts.review}</Text>
+              <Text style={styles.todayCount}> {studyCounts.today}</Text>
+              <Text style={styles.futureCount}> {studyCounts.future}</Text>
             </Text>
           </View>
         </View>
@@ -266,10 +265,10 @@ const styles = StyleSheet.create({
   summaryTitle: { color: '#14213D', fontSize: 19, fontWeight: '800' },
   summaryCount: { color: '#667085', fontSize: 13, fontWeight: '600' },
   summaryCounts: { alignItems: 'flex-end', gap: 3 },
-  dueCount: { color: '#12B76A', fontSize: 13, fontWeight: '800' },
+  dueCount: { color: '#D92D20', fontSize: 13, fontWeight: '800' },
   newCount: { color: '#1687F8' },
-  learningCount: { color: '#D92D20' },
-  reviewCount: { color: '#12B76A' },
+  todayCount: { color: '#D92D20' },
+  futureCount: { color: '#12B76A' },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 28 },
   cardList: { gap: 14, paddingBottom: 28 },

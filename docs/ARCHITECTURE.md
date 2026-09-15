@@ -30,7 +30,7 @@ Note creation and card creation are orchestrated by an application use case and 
 
 ## Scheduler
 
-The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. The current adapter uses the pinned `ts-fsrs` 5.4.2 implementation with fuzzing disabled for deterministic behavior. Review timestamps are UTC instants; review cards retain an exact UTC due timestamp and a UTC calendar-day ordinal for day-based selection. A review transaction persists the decision and append-only log atomically. A study session loads all cards whose due date belongs to the current UTC day, including future short-term learning cards, but only presents a short-term card when its exact FSRS due instant has arrived. Cards scheduled for the next day are excluded from the session.
+The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. The current adapter uses the pinned `ts-fsrs` 5.4.2 implementation with fuzzing disabled for deterministic behavior. Review timestamps are UTC instants; review cards retain an exact UTC due timestamp and a UTC calendar-day ordinal for day-based selection. A review transaction persists the decision and append-only log atomically. A study session loads all cards whose due date belongs to the current UTC day, including future short-term learning cards, but normally presents currently available cards first. Once those are exhausted, it presents the nearest future card from the same UTC day in due-time order. Cards scheduled for the next day are excluded from the session.
 
 ## Import/export
 

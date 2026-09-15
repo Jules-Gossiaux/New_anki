@@ -14,12 +14,22 @@ export function isStudyCardAvailable(card: Card, now: Date): boolean {
   return card.dueDay !== null && card.dueDay <= utcDay(now);
 }
 
-export function isShortTermDueToday(card: Card, now: Date): boolean {
+export function isScheduledToday(card: Card, now: Date): boolean {
   return (
-    (card.state === 1 || card.state === 3) &&
-    card.dueAt !== null &&
-    utcDay(new Date(card.dueAt)) === utcDay(now)
+    card.state !== 0 &&
+    ((card.dueAt !== null && utcDay(new Date(card.dueAt)) === utcDay(now)) ||
+      (card.dueAt === null && card.dueDay !== null && card.dueDay <= utcDay(now)))
   );
+}
+
+export function selectNextStudyCard(
+  cards: Card[],
+  now: Date,
+): { card: Card | null; isEarly: boolean } {
+  const available = cards.find((candidate) => isStudyCardAvailable(candidate, now));
+  if (available) return { card: available, isEarly: false };
+  const early = orderStudyQueue(cards).find((candidate) => isScheduledToday(candidate, now));
+  return { card: early ?? null, isEarly: early !== undefined };
 }
 
 export function orderStudyQueue(cards: Card[]): Card[] {

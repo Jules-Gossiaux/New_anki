@@ -8,6 +8,7 @@
 - Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.
 - Added FSRS due-time previews below the review buttons and automatic reappearance of short-term learning cards when due.
 - Kept all short-term learning cards scheduled for today in the active study queue while excluding cards scheduled for tomorrow; cards become selectable at their exact due time and retain due-time ordering.
+- Updated study selection so future cards from today are offered early only after all currently available cards are exhausted; tomorrow's cards remain excluded.
 
 - Added a redesigned deck management UI based on the product wireframe: card-based decks, clear primary actions, pencil editing, nested-deck affordance and settings FAB.
 - Added a deck screen UI test for the empty state and primary actions.

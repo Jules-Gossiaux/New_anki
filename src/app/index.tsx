@@ -271,8 +271,8 @@ function DeckCard({
           <Text style={styles.deckMeta}>{deck.depth === 0 ? 'Deck principal' : 'Sous-deck'}</Text>
           <Text style={styles.deckCounts}>
             <Text style={styles.newCount}>{counts?.new ?? 0}</Text>
-            <Text style={styles.learningCount}> {counts?.learning ?? 0}</Text>
-            <Text style={styles.reviewCount}> {counts?.review ?? 0}</Text>
+            <Text style={styles.todayCount}> {counts?.today ?? 0}</Text>
+            <Text style={styles.futureCount}> {counts?.future ?? 0}</Text>
           </Text>
         </Pressable>
         <Pressable
@@ -384,8 +384,8 @@ const styles = StyleSheet.create({
   deckMeta: { color: '#667085', fontSize: 13, marginTop: 5 },
   deckCounts: { color: '#12B76A', fontSize: 12, fontWeight: '700', marginTop: 8 },
   newCount: { color: '#1687F8' },
-  learningCount: { color: '#D92D20' },
-  reviewCount: { color: '#12B76A' },
+  todayCount: { color: '#D92D20' },
+  futureCount: { color: '#12B76A' },
   iconButton: {
     alignItems: 'center',
     backgroundColor: '#F1F7FF',
