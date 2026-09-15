@@ -24,13 +24,13 @@ Temporal data is explicit: event timestamps such as `created_at`, `updated_at` a
 
 SQLite is the proposed local store because it gives transactions, migrations, indexes and a future sync-friendly relational model. Repositories own SQL. Schema changes are numbered migrations and tested from a clean database and from the previous migration.
 
-The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`.
+The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`. Migration 2 adds the persisted FSRS state required to resume scheduling exactly: last review timestamp, scheduled days, elapsed days and learning steps.
 
-Note creation and card creation are orchestrated by an application use case and committed in one SQLite transaction. Repositories remain responsible for SQL and mapping persistence rows to domain types; the UI does not access SQL directly. Cards currently expose a neutral `new` state and no scheduling behavior until the FSRS adapter is introduced.
+Note creation and card creation are orchestrated by an application use case and committed in one SQLite transaction. Repositories remain responsible for SQL and mapping persistence rows to domain types; the UI does not access SQL directly. New cards expose a neutral `new` state until their first review, after which the isolated FSRS adapter persists the resulting scheduling state and review log atomically.
 
 ## Scheduler
 
-The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. It must use a pinned mature FSRS implementation, with contract tests around learning steps, reviews, lapses, intervals and due boundaries. A review transaction persists the decision and log atomically.
+The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. The current adapter uses the pinned `ts-fsrs` 5.4.2 implementation with fuzzing disabled for deterministic behavior. Review timestamps are UTC instants; review cards retain an exact UTC due timestamp and a UTC calendar-day ordinal for day-based selection. A review transaction persists the decision and append-only log atomically.
 
 ## Import/export
 

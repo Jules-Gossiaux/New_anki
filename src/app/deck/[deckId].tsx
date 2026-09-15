@@ -112,6 +112,14 @@ export default function DeckDetailScreen() {
           </Pressable>
         </View>
 
+        <Pressable
+          style={styles.studyButton}
+          onPress={() => router.push({ pathname: '/study/[deckId]', params: { deckId } })}
+          accessibilityRole="button"
+        >
+          <Text style={styles.studyButtonText}>Étudier les cartes dues</Text>
+        </Pressable>
+
         <View style={styles.summaryRow}>
           <Text style={styles.summaryTitle}>Vos cartes</Text>
           <Text style={styles.summaryCount}>
@@ -237,6 +245,14 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  studyButton: {
+    alignItems: 'center',
+    backgroundColor: '#EAF4FF',
+    borderRadius: 13,
+    marginBottom: 18,
+    paddingVertical: 14,
+  },
+  studyButtonText: { color: '#1674D1', fontSize: 15, fontWeight: '800' },
   summaryRow: {
     alignItems: 'baseline',
     flexDirection: 'row',

@@ -26,15 +26,21 @@ describe('CardRepository', () => {
     });
     expect(runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO cards'),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
+      'card-id',
+      'note-id',
+      'deck-id',
+      'basic-forward',
       0,
       0,
       0,
-      expect.anything(),
-      expect.anything(),
+      expect.any(String),
+      expect.any(String),
+      null,
+      null,
+      null,
+      0,
+      0,
+      0,
     );
   });
 

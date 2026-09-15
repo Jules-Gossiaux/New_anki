@@ -4,6 +4,9 @@
 
 ### Added
 
+- Added the first study flow with new/due card selection across nested decks, answer reveal, Again/Hard/Good/Easy ratings and atomic FSRS review persistence.
+- Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.
+
 - Added a redesigned deck management UI based on the product wireframe: card-based decks, clear primary actions, pencil editing, nested-deck affordance and settings FAB.
 - Added a deck screen UI test for the empty state and primary actions.
 - Refined the card-management screen to match the deck-list visual language and added confirmed card deletion.
