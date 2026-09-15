@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
-import { CARD_STATES, type Card, type ReviewRating } from '../../domain/cards';
-import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
+import type { Card, ReviewRating } from '../../domain/cards';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
 
 const ratings: { label: string; value: ReviewRating; color: string }[] = [
   { label: 'Again', value: 'again', color: '#D92D20' },
@@ -25,6 +25,8 @@ export default function StudyScreen() {
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [nextDueAt, setNextDueAt] = useState<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const card = cards[0];
 
   const load = useCallback(async () => {
@@ -43,11 +45,29 @@ export default function StudyScreen() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!nextDueAt) return undefined;
+    const refresh = () => {
+      const seconds = Math.max(0, Math.ceil((new Date(nextDueAt).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(seconds);
+      if (seconds === 0) {
+        setNextDueAt(null);
+        void load();
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 1000);
+    return () => clearInterval(timer);
+  }, [load, nextDueAt]);
+
   const submitRating = async (rating: ReviewRating) => {
     if (!card || isSubmitting) return;
     setSubmitting(true);
     try {
-      await new ReviewCard(db, new FsrsScheduler()).execute(card.id, rating);
+      const result = await new ReviewCard(db, new FsrsScheduler()).execute(card.id, rating);
+      if (result.decision.state === 1 || result.decision.state === 3) {
+        setNextDueAt(result.decision.dueAt);
+      }
       await load();
     } catch (error) {
       Alert.alert(
@@ -77,19 +97,27 @@ export default function StudyScreen() {
 
         {!card ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>✓</Text>
-            <Text style={styles.emptyTitle}>Tout est à jour</Text>
-            <Text style={styles.emptyText}>Aucune carte nouvelle ou due dans ce deck.</Text>
-            <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
-              <Text style={styles.secondaryButtonText}>Retour au deck</Text>
-            </Pressable>
+            {nextDueAt ? (
+              <>
+                <Text style={styles.emptyTitle}>Prochaine carte dans {remainingSeconds}s</Text>
+                <Text style={styles.emptyText}>
+                  Elle reviendra automatiquement dans la session.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyIcon}>✓</Text>
+                <Text style={styles.emptyTitle}>Tout est à jour</Text>
+                <Text style={styles.emptyText}>Aucune carte nouvelle ou due dans ce deck.</Text>
+                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                  <Text style={styles.secondaryButtonText}>Retour au deck</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         ) : (
           <View style={styles.studyArea}>
-            <View style={styles.card}>
-              <Text style={styles.state}>
-                {card.state === CARD_STATES.new ? 'NOUVELLE' : 'À RÉVISER'}
-              </Text>
+            <Pressable style={styles.card} onPress={() => setRevealed((value) => !value)}>
               <Text style={styles.front}>{card.front}</Text>
               {revealed ? (
                 <>
@@ -97,14 +125,10 @@ export default function StudyScreen() {
                   <Text style={styles.back}>{card.back}</Text>
                 </>
               ) : (
-                <Text style={styles.prompt}>Touchez le bouton pour révéler la réponse</Text>
+                <Text style={styles.prompt}>Touchez l’écran pour révéler la réponse</Text>
               )}
-            </View>
-            {!revealed ? (
-              <Pressable style={styles.revealButton} onPress={() => setRevealed(true)}>
-                <Text style={styles.revealText}>Révéler la réponse</Text>
-              </Pressable>
-            ) : (
+            </Pressable>
+            {revealed && (
               <View style={styles.ratingGrid}>
                 {ratings.map((item) => (
                   <Pressable
@@ -135,33 +159,12 @@ const styles = StyleSheet.create({
   title: { color: '#101828', fontSize: 24, fontWeight: '800', marginTop: 4 },
   counter: { color: '#667085', fontSize: 13, fontWeight: '700' },
   studyArea: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EEF2F6',
-    borderRadius: 24,
-    borderWidth: 1,
-    minHeight: 300,
-    padding: 24,
-    shadowColor: '#101828',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 2,
-  },
-  state: { color: '#1674D1', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  front: { color: '#14213D', fontSize: 34, fontWeight: '800', marginTop: 70, textAlign: 'center' },
-  divider: { backgroundColor: '#EEF2F6', height: 1, marginVertical: 28 },
-  back: { color: '#475467', fontSize: 25, fontWeight: '600', textAlign: 'center' },
-  prompt: { color: '#98A2B3', fontSize: 15, marginTop: 88, textAlign: 'center' },
-  revealButton: {
-    alignItems: 'center',
-    backgroundColor: '#1687F8',
-    borderRadius: 14,
-    marginTop: 18,
-    paddingVertical: 16,
-  },
-  revealText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  ratingGrid: { flexDirection: 'row', gap: 8, marginTop: 18 },
+  card: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
+  front: { color: '#14213D', fontSize: 42, fontWeight: '800', textAlign: 'center' },
+  divider: { backgroundColor: '#D0D5DD', height: 1, marginVertical: 28, width: '65%' },
+  back: { color: '#475467', fontSize: 28, fontWeight: '600', textAlign: 'center' },
+  prompt: { color: '#98A2B3', fontSize: 15, marginTop: 92, textAlign: 'center' },
+  ratingGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   ratingButton: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -173,7 +176,7 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 14, fontWeight: '800' },
   empty: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingBottom: 80 },
   emptyIcon: { color: '#12B76A', fontSize: 42, marginBottom: 14 },
-  emptyTitle: { color: '#14213D', fontSize: 23, fontWeight: '800' },
+  emptyTitle: { color: '#14213D', fontSize: 23, fontWeight: '800', textAlign: 'center' },
   emptyText: { color: '#667085', fontSize: 15, marginTop: 8, textAlign: 'center' },
   secondaryButton: {
     backgroundColor: '#EAF4FF',

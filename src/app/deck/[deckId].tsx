@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import type { Card } from '../../domain/cards';
-import { CardRepository } from '../../infrastructure/repositories/cardRepository';
+import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 
 export default function DeckDetailScreen() {
@@ -26,6 +26,13 @@ export default function DeckDetailScreen() {
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [deckName, setDeckName] = useState('Deck');
   const [cards, setCards] = useState<Card[]>([]);
+  const [studyCounts, setStudyCounts] = useState<StudyCounts>({
+    total: 0,
+    due: 0,
+    new: 0,
+    learning: 0,
+    review: 0,
+  });
   const [isModalVisible, setModalVisible] = useState(false);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
@@ -39,6 +46,7 @@ export default function DeckDetailScreen() {
     }
     setDeckName(deck.name);
     setCards(await cardRepository.listByDeck(deckId));
+    setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
   }, [cardRepository, db, deckId, router]);
 
   useEffect(() => {
@@ -112,19 +120,16 @@ export default function DeckDetailScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          style={styles.studyButton}
-          onPress={() => router.push({ pathname: '/study/[deckId]', params: { deckId } })}
-          accessibilityRole="button"
-        >
-          <Text style={styles.studyButtonText}>Étudier les cartes dues</Text>
-        </Pressable>
-
         <View style={styles.summaryRow}>
           <Text style={styles.summaryTitle}>Vos cartes</Text>
-          <Text style={styles.summaryCount}>
-            {cards.length} {cards.length === 1 ? 'carte' : 'cartes'}
-          </Text>
+          <View style={styles.summaryCounts}>
+            <Text style={styles.summaryCount}>{cards.length} total</Text>
+            <Text style={styles.dueCount}>
+              <Text style={styles.newCount}>{studyCounts.new}</Text>
+              <Text style={styles.learningCount}> {studyCounts.learning}</Text>
+              <Text style={styles.reviewCount}> {studyCounts.review}</Text>
+            </Text>
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -204,7 +209,13 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
     <View style={styles.vocabularyCard}>
       <View style={styles.cardTopRow}>
         <View style={styles.cardBadge}>
-          <Text style={styles.cardBadgeText}>NOUVELLE</Text>
+          <Text style={styles.cardBadgeText}>
+            {card.state === 0
+              ? 'NOUVELLE'
+              : card.state === 1 || card.state === 3
+                ? 'APPRENTISSAGE'
+                : 'À RÉVISER'}
+          </Text>
         </View>
         <Pressable onPress={onDelete} accessibilityLabel={`Supprimer ${card.front}`} hitSlop={8}>
           <Text style={styles.deleteIcon}>•••</Text>
@@ -245,14 +256,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  studyButton: {
-    alignItems: 'center',
-    backgroundColor: '#EAF4FF',
-    borderRadius: 13,
-    marginBottom: 18,
-    paddingVertical: 14,
-  },
-  studyButtonText: { color: '#1674D1', fontSize: 15, fontWeight: '800' },
   summaryRow: {
     alignItems: 'baseline',
     flexDirection: 'row',
@@ -262,6 +265,11 @@ const styles = StyleSheet.create({
   },
   summaryTitle: { color: '#14213D', fontSize: 19, fontWeight: '800' },
   summaryCount: { color: '#667085', fontSize: 13, fontWeight: '600' },
+  summaryCounts: { alignItems: 'flex-end', gap: 3 },
+  dueCount: { color: '#12B76A', fontSize: 13, fontWeight: '800' },
+  newCount: { color: '#1687F8' },
+  learningCount: { color: '#D92D20' },
+  reviewCount: { color: '#12B76A' },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 28 },
   cardList: { gap: 14, paddingBottom: 28 },
