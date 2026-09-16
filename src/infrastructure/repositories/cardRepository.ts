@@ -1,5 +1,10 @@
 import { randomUUID } from 'expo-crypto';
-import type { Card, CreateCardInput } from '../../domain/cards';
+import { CARD_TEMPLATES, type Card, type CreateCardInput } from '../../domain/cards';
+import {
+  DEFAULT_REVIEW_SETTINGS,
+  getAvailableNewCardCount,
+  getAvailableReviewCardCount,
+} from '../../domain/reviewSettings';
 import type { DatabaseClient } from '../database/client';
 
 type CardRow = {
@@ -30,6 +35,8 @@ export type StudyCounts = {
   today: number;
   future: number;
 };
+
+export type DailyStudyProgress = { newCards: number; reviews: number };
 
 function toCard(row: CardRow): Card {
   return {
@@ -83,7 +90,7 @@ export class CardRepository {
       id: randomUUID(),
       noteId: input.noteId,
       deckId: input.deckId,
-      templateKey: input.templateKey?.trim() || 'basic-forward',
+      templateKey: input.templateKey || CARD_TEMPLATES.forward,
       state: 0,
       dueAt: null,
       dueDay: null,
@@ -134,6 +141,21 @@ export class CardRepository {
        WHERE cards.deck_id = ? AND cards.deleted_at IS NULL AND notes.deleted_at IS NULL
        ORDER BY cards.created_at ASC`,
       deckId,
+    );
+    return rows.map(toCard);
+  }
+
+  public async listByNote(noteId: string): Promise<Card[]> {
+    const rows = await this.db.getAllAsync<CardRow>(
+      `SELECT cards.id, cards.note_id, cards.deck_id, cards.template_key, cards.state,
+              cards.due_at, cards.due_day, cards.stability, cards.difficulty,
+              cards.last_review_at, cards.scheduled_days, cards.elapsed_days, cards.learning_steps,
+              cards.reps, cards.lapses, notes.front, notes.back,
+              cards.created_at, cards.updated_at
+       FROM cards JOIN notes ON notes.id = cards.note_id
+       WHERE cards.note_id = ? AND cards.deleted_at IS NULL AND notes.deleted_at IS NULL
+       ORDER BY cards.template_key ASC`,
+      noteId,
     );
     return rows.map(toCard);
   }
@@ -218,13 +240,53 @@ export class CardRepository {
       now.toISOString(),
       today,
     );
+    const dailyNewLimit = await this.db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      'review.new_cards_per_day',
+    );
+    const configuredLimit = Number(dailyNewLimit?.value);
+    const dailyReviewLimit = await this.db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      'review.reviews_per_day',
+    );
+    const configuredReviewLimit = Number(dailyReviewLimit?.value);
+    const progress = await this.getDailyStudyProgress(now);
     const counts = {
       total: row?.total ?? 0,
-      new: row?.new ?? 0,
-      today: row?.today ?? 0,
+      new: getAvailableNewCardCount(
+        row?.new ?? 0,
+        Number.isFinite(configuredLimit) ? configuredLimit : DEFAULT_REVIEW_SETTINGS.newCardsPerDay,
+        progress.newCards,
+      ),
+      today: getAvailableReviewCardCount(
+        row?.today ?? 0,
+        Number.isFinite(configuredReviewLimit)
+          ? configuredReviewLimit
+          : DEFAULT_REVIEW_SETTINGS.reviewsPerDay,
+        progress.reviews,
+      ),
       future: row?.future ?? 0,
     };
     return counts;
+  }
+
+  public async getDailyStudyProgress(now: Date): Promise<DailyStudyProgress> {
+    const start = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    ).toISOString();
+    const end = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+    ).toISOString();
+    const row = await this.db.getFirstAsync<DailyStudyProgress>(
+      `SELECT
+         COUNT(DISTINCT CASE WHEN state_before = 0 THEN card_id END) AS newCards,
+         COUNT(DISTINCT CASE WHEN state_before <> 0 THEN card_id END) AS reviews
+       FROM review_logs
+       WHERE reviewed_at >= ? AND reviewed_at < ?`,
+      start,
+      end,
+    );
+    return { newCards: row?.newCards ?? 0, reviews: row?.reviews ?? 0 };
   }
 
   public async applyScheduling(
@@ -262,6 +324,29 @@ export class CardRepository {
       id,
     );
     if (result.changes === 0) throw new Error('Card does not exist.');
+  }
+
+  public async resetScheduling(id: string): Promise<void> {
+    const result = await this.db.runAsync(
+      `UPDATE cards SET state = 0, due_at = NULL, due_day = NULL, stability = NULL,
+       difficulty = NULL, last_review_at = NULL, scheduled_days = 0, elapsed_days = 0,
+       learning_steps = 0, reps = 0, lapses = 0, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      id,
+    );
+    if (result.changes === 0) throw new Error('Card does not exist.');
+  }
+
+  public async resetSchedulingByNoteId(noteId: string): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE cards SET state = 0, due_at = NULL, due_day = NULL, stability = NULL,
+       difficulty = NULL, last_review_at = NULL, scheduled_days = 0, elapsed_days = 0,
+       learning_steps = 0, reps = 0, lapses = 0, updated_at = ?
+       WHERE note_id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      noteId,
+    );
   }
 
   public async remove(id: string): Promise<void> {

@@ -171,7 +171,7 @@ export default function DecksScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}
-          onPress={() => Alert.alert('Reglages', 'Les reglages de revision arriveront avec FSRS.')}
+          onPress={() => router.push('./settings')}
           accessibilityLabel="Ouvrir les reglages"
           accessibilityRole="button"
         >
@@ -296,7 +296,9 @@ function DeckCard({
         }}
         accessibilityRole="button"
       >
-        <Text style={styles.addCardsText}>Ajouter des cartes</Text>
+        <Text style={styles.addCardsText}>
+          {counts && counts.total > 0 ? 'Modifier les cartes du deck' : 'Ajouter des cartes'}
+        </Text>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
       {deck.depth === 0 && (

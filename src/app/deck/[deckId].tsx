@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,10 +15,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
-import type { Card } from '../../domain/cards';
-import { getCardDisplayStatus, type CardDisplayStatus } from '../../domain/cardStatus';
+import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
+import {
+  CARD_TEMPLATES,
+  getCardSides,
+  type Card,
+  type TemplateSelection,
+} from '../../domain/cards';
+import type { Note } from '../../domain/notes';
+import { normalizeTagName, type Tag } from '../../domain/tags';
+import {
+  formatCardSchedule,
+  getCardDisplayStatus,
+  type CardDisplayStatus,
+} from '../../domain/cardStatus';
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
+import { TagRepository } from '../../infrastructure/repositories/tagRepository';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -27,6 +41,7 @@ export default function DeckDetailScreen() {
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [deckName, setDeckName] = useState('Deck');
   const [cards, setCards] = useState<Card[]>([]);
+  const [cardsRefreshToken, setCardsRefreshToken] = useState(0);
   const [studyCounts, setStudyCounts] = useState<StudyCounts>({
     total: 0,
     new: 0,
@@ -34,8 +49,16 @@ export default function DeckDetailScreen() {
     future: 0,
   });
   const [isModalVisible, setModalVisible] = useState(false);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
+  const [example, setExample] = useState('');
+  const [extra, setExtra] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState('');
+  const [templateSelection, setTemplateSelection] = useState<TemplateSelection>('both');
+  const [isLoadingEditDetails, setIsLoadingEditDetails] = useState(false);
+  const editRequestId = useRef(0);
 
   const load = useCallback(async () => {
     if (!deckId) return;
@@ -46,6 +69,7 @@ export default function DeckDetailScreen() {
     }
     setDeckName(deck.name);
     setCards(await cardRepository.listByDeck(deckId));
+    setCardsRefreshToken((value) => value + 1);
     setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
   }, [cardRepository, db, deckId, router]);
 
@@ -56,15 +80,100 @@ export default function DeckDetailScreen() {
   );
 
   const closeModal = () => {
+    editRequestId.current += 1;
     setModalVisible(false);
+    setEditingCard(null);
     setFront('');
     setBack('');
+    setExample('');
+    setExtra('');
+    setTags([]);
+    setTagDraft('');
+    setTemplateSelection('both');
+    setIsLoadingEditDetails(false);
+  };
+
+  const openCreateModal = () => {
+    editRequestId.current += 1;
+    setEditingCard(null);
+    setFront('');
+    setBack('');
+    setExample('');
+    setExtra('');
+    setTags([]);
+    setTagDraft('');
+    setTemplateSelection('both');
+    setIsLoadingEditDetails(false);
+    setModalVisible(true);
+  };
+
+  const openEditModal = (card: Card) => {
+    const requestId = editRequestId.current + 1;
+    editRequestId.current = requestId;
+    setEditingCard(card);
+    setFront(card.front);
+    setBack(card.back);
+    setExample('');
+    setExtra('');
+    setTags([]);
+    setTagDraft('');
+    setIsLoadingEditDetails(true);
+    setModalVisible(true);
+
+    void Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+      cardRepository.listByNote(card.noteId),
+    ])
+      .then(([note, cardTags, noteCards]) => {
+        if (editRequestId.current !== requestId || !note) return;
+        setExample(note.example ?? '');
+        setExtra(note.extra ?? '');
+        setTags(cardTags.map((tag) => tag.name));
+        setTemplateSelection(getTemplateSelection(noteCards));
+      })
+      .catch(() => {
+        if (editRequestId.current === requestId) {
+          Alert.alert(
+            'Chargement impossible',
+            'Les détails de la carte n’ont pas pu être chargés.',
+          );
+        }
+      })
+      .finally(() => {
+        if (editRequestId.current === requestId) setIsLoadingEditDetails(false);
+      });
+  };
+
+  const addTag = () => {
+    const normalized = normalizeTagName(tagDraft);
+    if (!normalized || tags.includes(normalized)) return;
+    setTags([...tags, normalized]);
+    setTagDraft('');
   };
 
   const createCard = async () => {
     if (!deckId) return;
     try {
-      await new CreateVocabularyCard(db).execute(deckId, { front, back });
+      if (editingCard) {
+        await new UpdateVocabularyCard(db).execute(
+          editingCard.id,
+          {
+            front,
+            back,
+            example,
+            extra,
+            tags,
+          },
+          templateSelection,
+        );
+      } else {
+        await new CreateVocabularyCard(db).execute(
+          deckId,
+          { front, back, example, extra, tags },
+          templateSelection,
+        );
+      }
       closeModal();
       await load();
     } catch (error) {
@@ -113,11 +222,7 @@ export default function DeckDetailScreen() {
               {deckName}
             </Text>
           </View>
-          <Pressable
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-            accessibilityRole="button"
-          >
+          <Pressable style={styles.addButton} onPress={openCreateModal} accessibilityRole="button">
             <Text style={styles.addButtonText}>+ Carte</Text>
           </Pressable>
         </View>
@@ -146,14 +251,20 @@ export default function DeckDetailScreen() {
                 <Text style={styles.emptyText}>
                   Ajoutez votre premier mot pour commencer votre collection.
                 </Text>
-                <Pressable style={styles.emptyButton} onPress={() => setModalVisible(true)}>
+                <Pressable style={styles.emptyButton} onPress={openCreateModal}>
                   <Text style={styles.emptyButtonText}>Ajouter une carte</Text>
                 </Pressable>
               </View>
             ) : (
               <View style={styles.cardList}>
                 {cards.map((card) => (
-                  <VocabularyCard key={card.id} card={card} onDelete={() => deleteCard(card)} />
+                  <VocabularyCard
+                    key={card.id}
+                    card={card}
+                    refreshToken={cardsRefreshToken}
+                    onEdit={() => openEditModal(card)}
+                    onDelete={() => deleteCard(card)}
+                  />
                 ))}
               </View>
             )}
@@ -164,14 +275,23 @@ export default function DeckDetailScreen() {
       <Modal visible={isModalVisible} transparent animationType="slide" onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalCard}>
+          <ScrollView
+            style={styles.modalCard}
+            contentContainerStyle={styles.modalCardContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalEyebrow}>NOUVELLE CARTE</Text>
-                <Text style={styles.modalTitle}>Ajouter du vocabulaire</Text>
+                <Text style={styles.modalEyebrow}>
+                  {editingCard ? 'MODIFIER LA CARTE' : 'NOUVELLE CARTE'}
+                </Text>
+                <Text style={styles.modalTitle}>
+                  {editingCard ? 'Modifier le vocabulaire' : 'Ajouter du vocabulaire'}
+                </Text>
               </View>
               <Pressable onPress={closeModal} accessibilityLabel="Fermer">
                 <Text style={styles.closeText}>×</Text>
@@ -196,18 +316,139 @@ export default function DeckDetailScreen() {
               style={styles.input}
               accessibilityLabel="Reponse de la carte"
             />
-            <Pressable style={styles.saveButton} onPress={() => void createCard()}>
-              <Text style={styles.saveButtonText}>Ajouter la carte</Text>
+            <Text style={styles.fieldLabel}>Sens d’étude</Text>
+            <View style={styles.templateOptions}>
+              {templateOptions.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.templateOption,
+                    templateSelection === option.value && styles.templateOptionSelected,
+                  ]}
+                  onPress={() => setTemplateSelection(option.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: templateSelection === option.value }}
+                >
+                  <Text
+                    style={[
+                      styles.templateOptionText,
+                      templateSelection === option.value && styles.templateOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.fieldLabel}>Exemple (facultatif)</Text>
+            <TextInput
+              placeholder="Ex. perseverance takes practice"
+              placeholderTextColor="#98A2B3"
+              value={example}
+              onChangeText={setExample}
+              style={styles.input}
+              accessibilityLabel="Exemple de la carte"
+            />
+            <Text style={styles.fieldLabel}>Informations supplémentaires (facultatif)</Text>
+            <TextInput
+              placeholder="Notes personnelles"
+              placeholderTextColor="#98A2B3"
+              value={extra}
+              onChangeText={setExtra}
+              style={[styles.input, styles.multilineInput]}
+              multiline
+              accessibilityLabel="Informations supplémentaires de la carte"
+            />
+            <Text style={styles.fieldLabel}>Tags</Text>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                placeholder="Ex. travail"
+                placeholderTextColor="#98A2B3"
+                value={tagDraft}
+                onChangeText={setTagDraft}
+                onSubmitEditing={addTag}
+                style={[styles.input, styles.tagInput]}
+                accessibilityLabel="Nouveau tag"
+              />
+              <Pressable style={styles.addTagButton} onPress={addTag} accessibilityRole="button">
+                <Text style={styles.addTagButtonText}>Ajouter</Text>
+              </Pressable>
+            </View>
+            <View style={styles.tagList}>
+              {tags.map((tag) => (
+                <Pressable
+                  key={tag}
+                  style={styles.tagChip}
+                  onPress={() => setTags(tags.filter((current) => current !== tag))}
+                  accessibilityLabel={`Retirer le tag ${tag}`}
+                >
+                  <Text style={styles.tagText}>#{tag} ×</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              style={[styles.saveButton, isLoadingEditDetails && styles.saveButtonDisabled]}
+              onPress={() => void createCard()}
+              disabled={isLoadingEditDetails}
+            >
+              <Text style={styles.saveButtonText}>
+                {editingCard ? 'Enregistrer les modifications' : 'Ajouter la carte'}
+              </Text>
             </Pressable>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
 
-function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }) {
+const templateOptions: ReadonlyArray<{ value: TemplateSelection; label: string }> = [
+  { value: 'both', label: 'Les deux sens' },
+  { value: 'forward', label: 'Mot → traduction' },
+  { value: 'reverse', label: 'Traduction → mot' },
+];
+
+function getTemplateSelection(cards: Card[]): TemplateSelection {
+  const hasForward = cards.some((card) => card.templateKey === CARD_TEMPLATES.forward);
+  const hasReverse = cards.some((card) => card.templateKey === CARD_TEMPLATES.reverse);
+  if (hasForward && hasReverse) return 'both';
+  return hasForward ? 'forward' : 'reverse';
+}
+
+function VocabularyCard({
+  card,
+  refreshToken,
+  onEdit,
+  onDelete,
+}: {
+  card: Card;
+  refreshToken: number;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const db = useSQLiteContext();
+  const [note, setNote] = useState<Note | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
   const status = getCardDisplayStatus(card, new Date());
+  const cardSides = getCardSides(card);
+
+  useEffect(() => {
+    let active = true;
+    setNote(null);
+    setTags([]);
+    void Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+    ]).then(([loadedNote, loadedTags]) => {
+      if (active) {
+        setNote(loadedNote);
+        setTags(loadedTags);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [card.noteId, db, refreshToken]);
 
   return (
     <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
@@ -221,9 +462,24 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
           <Text style={styles.deleteIcon}>•••</Text>
         </Pressable>
       </View>
-      <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <Text style={[styles.front, stylesByStatus[status].front]}>{cardSides.prompt}</Text>
+      <Text style={styles.schedule}>{formatCardSchedule(card, new Date())}</Text>
       <View style={[styles.divider, stylesByStatus[status].divider]} />
-      <Text style={styles.back}>{card.back}</Text>
+      <Text style={styles.back}>{cardSides.answer}</Text>
+      {note?.example && <Text style={styles.cardExample}>{note.example}</Text>}
+      {note?.extra && <Text style={styles.cardExtra}>{note.extra}</Text>}
+      {tags.length > 0 && (
+        <View style={styles.cardTags}>
+          {tags.map((tag) => (
+            <Text key={tag.id} style={styles.cardTag}>
+              #{tag.name}
+            </Text>
+          ))}
+        </View>
+      )}
+      <Pressable style={styles.cardEditAction} onPress={onEdit} accessibilityRole="button">
+        <Text style={styles.cardEditText}>Modifier la carte</Text>
+      </Pressable>
       <Pressable style={styles.cardDeleteAction} onPress={onDelete} accessibilityRole="button">
         <Text style={styles.cardDeleteText}>Supprimer la carte</Text>
       </Pressable>
@@ -335,8 +591,33 @@ const styles = StyleSheet.create({
   front: { color: '#14213D', fontSize: 24, fontWeight: '800', marginTop: 17 },
   divider: { backgroundColor: '#EEF2F6', height: 1, marginVertical: 15 },
   back: { color: '#475467', fontSize: 18, fontWeight: '500' },
+  schedule: { color: '#667085', fontSize: 13, marginTop: 8 },
+  cardExample: { color: '#344054', fontSize: 15, fontStyle: 'italic', marginTop: 12 },
+  cardExtra: { color: '#667085', fontSize: 14, marginTop: 6 },
+  cardTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  cardTag: { color: '#667085', fontSize: 12 },
   cardDeleteAction: { alignSelf: 'flex-start', marginTop: 17 },
+  cardEditAction: { alignSelf: 'flex-start', marginTop: 17 },
+  cardEditText: { color: '#1674D1', fontSize: 13, fontWeight: '700' },
   cardDeleteText: { color: '#B42318', fontSize: 13, fontWeight: '700' },
+  multilineInput: { minHeight: 72, textAlignVertical: 'top' },
+  tagInputRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  tagInput: { flex: 1 },
+  addTagButton: {
+    backgroundColor: '#EAF4FF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  addTagButtonText: { color: '#1674D1', fontSize: 13, fontWeight: '800' },
+  tagList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  tagChip: {
+    backgroundColor: '#F2F4F7',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  tagText: { color: '#344054', fontSize: 12, fontWeight: '700' },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -359,9 +640,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 32,
+    maxHeight: '92%',
+    overflow: 'hidden',
+    width: '100%',
   },
+  modalCardContent: { padding: 24, paddingBottom: 32 },
   modalHandle: {
     alignSelf: 'center',
     backgroundColor: '#D0D5DD',
@@ -390,6 +673,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
+  templateOptions: { gap: 8 },
+  templateOption: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#D0D5DD',
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  templateOptionSelected: { backgroundColor: '#EAF4FF', borderColor: '#1687F8' },
+  templateOptionText: { color: '#475467', fontSize: 14, fontWeight: '700' },
+  templateOptionTextSelected: { color: '#1674D1' },
   saveButton: {
     alignItems: 'center',
     backgroundColor: '#1687F8',
@@ -398,4 +693,5 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   saveButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  saveButtonDisabled: { opacity: 0.55 },
 });

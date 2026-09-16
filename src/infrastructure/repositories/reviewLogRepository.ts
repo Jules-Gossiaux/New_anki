@@ -26,7 +26,7 @@ export class ReviewLogRepository {
       log.difficultyBefore,
       log.difficultyAfter,
       '1.0.0',
-      2,
+      3,
     );
   }
 }

@@ -1,4 +1,5 @@
 import type { Card } from '../domain/cards';
+import type { ReviewSettings } from '../domain/reviewSettings';
 
 export function utcDay(date: Date): number {
   return Math.floor(
@@ -37,5 +38,27 @@ export function orderStudyQueue(cards: Card[]): Card[] {
     const leftDue = left.dueAt !== null ? new Date(left.dueAt).getTime() : left.dueDay;
     const rightDue = right.dueAt !== null ? new Date(right.dueAt).getTime() : right.dueDay;
     return (leftDue ?? Number.MAX_SAFE_INTEGER) - (rightDue ?? Number.MAX_SAFE_INTEGER);
+  });
+}
+
+export function applyDailyLimits(
+  cards: Card[],
+  settings: ReviewSettings,
+  progress: { newCards: number; reviews: number },
+): Card[] {
+  let newCards = 0;
+  let reviews = 0;
+  const newRemaining = Math.max(0, settings.newCardsPerDay - progress.newCards);
+  const reviewsRemaining = Math.max(0, settings.reviewsPerDay - progress.reviews);
+
+  return cards.filter((card) => {
+    if (card.state === 0) {
+      if (newCards >= newRemaining) return false;
+      newCards += 1;
+      return true;
+    }
+    if (reviews >= reviewsRemaining) return false;
+    reviews += 1;
+    return true;
   });
 }

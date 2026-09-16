@@ -18,7 +18,7 @@ Self-directed learners who value retention and control but find Anki's setup and
 
 ## MVP scope
 
-Phase A: nested decks, notes/cards, vocabulary fields, tags, templates where justified, SQLite persistence/migrations, FSRS learning/review/lapse scheduling, review history, settings, Android validation and staged Anki import/export. The current implementation covers the persistence and core study subset; settings, full editing, tag/template UX and import/export remain open and must be completed before Phase A is marked complete. iOS validation is outside the MVP acceptance criteria and will happen later.
+Phase A: nested decks, notes/cards, vocabulary fields, tags, selectable study directions, SQLite persistence/migrations, FSRS learning/review/lapse scheduling, review history, settings, Android validation and staged Anki import/export. The current implementation covers the persistence and core study subset, including global revision settings, full editing of the current vocabulary fields, selectable independent forward/reverse cards and tag assignment. Editing preserves append-only history and resets both direction cards' current FSRS state when the front or back changes; changing the selected directions preserves retained cards and creates fresh cards for newly enabled directions. Staged Anki import remains open and must be completed before Phase A is marked complete. iOS validation is outside the MVP acceptance criteria and will happen later.
 
 Phase B: polished study flow, restrained transitions, progress feedback, accessibility, and a technically honest intervention experiment for unlock/phone-use reminders.
 

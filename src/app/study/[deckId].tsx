@@ -4,15 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
-import {
-  isScheduledToday,
-  orderStudyQueue,
-  selectNextStudyCard,
-} from '../../application/studyQueue';
-import type { Card, ReviewRating } from '../../domain/cards';
+import { applyDailyLimits, selectNextStudyCard } from '../../application/studyQueue';
+import { getCardSides, type Card, type ReviewRating } from '../../domain/cards';
+import type { Note } from '../../domain/notes';
+import type { Tag } from '../../domain/tags';
+import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
+import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
+import { TagRepository } from '../../infrastructure/repositories/tagRepository';
 import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
 
 const ratings: { label: string; value: ReviewRating; color: string }[] = [
@@ -35,16 +37,22 @@ export default function StudyScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
-  const scheduler = useMemo(() => new FsrsScheduler(), []);
+  const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
+  const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
+  const scheduler = useMemo(() => new FsrsScheduler(settings), [settings]);
   const [deckName, setDeckName] = useState('Étude');
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [isDailyLimitReached, setDailyLimitReached] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
+  const [noteDetails, setNoteDetails] = useState<Note | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
+  const cardSides = card ? getCardSides(card) : null;
   const nextFutureCard = selection.isEarly ? card : undefined;
   const remainingSeconds = 0;
 
@@ -56,10 +64,18 @@ export default function StudyScreen() {
       return;
     }
     setDeckName(deck.name);
-    const dueCards = await cardRepository.listStudyQueue(deckId, new Date());
-    setCards(dueCards);
+    const currentSettings = await settingsRepository.get();
+    const currentNow = new Date();
+    const [queue, progress] = await Promise.all([
+      cardRepository.listStudyQueue(deckId, currentNow),
+      cardRepository.getDailyStudyProgress(currentNow),
+    ]);
+    const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
+    setSettings(currentSettings);
+    setCards(limitedQueue);
+    setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
     setRevealed(false);
-  }, [cardRepository, db, deckId, router, scheduler]);
+  }, [cardRepository, db, deckId, router, settingsRepository]);
 
   useEffect(() => {
     void load();
@@ -74,18 +90,35 @@ export default function StudyScreen() {
     setPreviews(card ? scheduler.preview(card, now) : null);
   }, [card?.id, now.getTime(), scheduler]);
 
+  useEffect(() => {
+    let active = true;
+    if (!card) {
+      setNoteDetails(null);
+      setTags([]);
+      return () => {
+        active = false;
+      };
+    }
+    void Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+    ]).then(([note, loadedTags]) => {
+      if (active) {
+        setNoteDetails(note);
+        setTags(loadedTags);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [card?.id, card?.noteId, db]);
+
   const submitRating = async (rating: ReviewRating) => {
     if (!card || isSubmitting) return;
     setSubmitting(true);
     try {
-      const result = await new ReviewCard(db, scheduler).execute(card.id, rating);
-      const updatedCard: Card = { ...card, ...result.decision };
-      setCards((current) => {
-        const remaining = current.filter((candidate) => candidate.id !== card.id);
-        if (isScheduledToday(updatedCard, new Date())) remaining.push(updatedCard);
-        return orderStudyQueue(remaining);
-      });
-      setRevealed(false);
+      await new ReviewCard(db, scheduler).execute(card.id, rating);
+      await load();
     } catch (error) {
       Alert.alert(
         'Impossible d’enregistrer la révision',
@@ -114,7 +147,18 @@ export default function StudyScreen() {
 
         {!card ? (
           <View style={styles.empty}>
-            {nextFutureCard ? (
+            {isDailyLimitReached ? (
+              <>
+                <Text style={styles.emptyIcon}>✓</Text>
+                <Text style={styles.emptyTitle}>Limite quotidienne atteinte</Text>
+                <Text style={styles.emptyText}>
+                  Les cartes restantes seront disponibles demain selon tes réglages.
+                </Text>
+                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                  <Text style={styles.secondaryButtonText}>Retour au deck</Text>
+                </Pressable>
+              </>
+            ) : nextFutureCard ? (
               <>
                 <Text style={styles.emptyTitle}>Prochaine carte dans {remainingSeconds}s</Text>
                 <Text style={styles.emptyText}>
@@ -136,11 +180,24 @@ export default function StudyScreen() {
           <View style={styles.studyArea}>
             <Pressable style={styles.card} onPress={() => setRevealed((value) => !value)}>
               {selection.isEarly && <Text style={styles.earlyLabel}>PRÉVUE AUJOURD’HUI</Text>}
-              <Text style={styles.front}>{card.front}</Text>
+              <Text style={styles.front}>{cardSides?.prompt}</Text>
               {revealed ? (
                 <>
                   <View style={styles.divider} />
-                  <Text style={styles.back}>{card.back}</Text>
+                  <Text style={styles.back}>{cardSides?.answer}</Text>
+                  {noteDetails?.example && (
+                    <Text style={styles.example}>{noteDetails.example}</Text>
+                  )}
+                  {noteDetails?.extra && <Text style={styles.extra}>{noteDetails.extra}</Text>}
+                  {tags.length > 0 && (
+                    <View style={styles.studyTags}>
+                      {tags.map((tag) => (
+                        <Text key={tag.id} style={styles.studyTag}>
+                          #{tag.name}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                 </>
               ) : (
                 <Text style={styles.prompt}>Touchez l’écran pour révéler la réponse</Text>
@@ -191,6 +248,16 @@ const styles = StyleSheet.create({
   },
   divider: { backgroundColor: '#D0D5DD', height: 1, marginVertical: 28, width: '65%' },
   back: { color: '#475467', fontSize: 28, fontWeight: '600', textAlign: 'center' },
+  example: {
+    color: '#344054',
+    fontSize: 18,
+    fontStyle: 'italic',
+    marginTop: 22,
+    textAlign: 'center',
+  },
+  extra: { color: '#667085', fontSize: 15, marginTop: 12, textAlign: 'center' },
+  studyTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  studyTag: { color: '#667085', fontSize: 12 },
   prompt: { color: '#98A2B3', fontSize: 15, marginTop: 92, textAlign: 'center' },
   ratingGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   ratingButton: {

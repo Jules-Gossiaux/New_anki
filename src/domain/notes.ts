@@ -15,9 +15,17 @@ export type CreateNoteInput = {
   back: string;
   example?: string | null;
   extra?: string | null;
+  tags?: string[];
 };
 
 export type UpdateNoteInput = CreateNoteInput;
+
+export function hasDeepPrimaryContentChange(current: Note, input: UpdateNoteInput): boolean {
+  return (
+    assertNoteContent(input.front, 'front') !== current.front ||
+    assertNoteContent(input.back, 'back') !== current.back
+  );
+}
 
 export function assertNoteContent(value: string, field: 'front' | 'back'): string {
   const normalized = value.trim();
