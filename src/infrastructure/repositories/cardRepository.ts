@@ -1,6 +1,10 @@
 import { randomUUID } from 'expo-crypto';
 import type { Card, CreateCardInput } from '../../domain/cards';
-import { DEFAULT_REVIEW_SETTINGS, getAvailableNewCardCount } from '../../domain/reviewSettings';
+import {
+  DEFAULT_REVIEW_SETTINGS,
+  getAvailableNewCardCount,
+  getAvailableReviewCardCount,
+} from '../../domain/reviewSettings';
 import type { DatabaseClient } from '../database/client';
 
 type CardRow = {
@@ -226,6 +230,11 @@ export class CardRepository {
       'review.new_cards_per_day',
     );
     const configuredLimit = Number(dailyNewLimit?.value);
+    const dailyReviewLimit = await this.db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      'review.reviews_per_day',
+    );
+    const configuredReviewLimit = Number(dailyReviewLimit?.value);
     const progress = await this.getDailyStudyProgress(now);
     const counts = {
       total: row?.total ?? 0,
@@ -234,7 +243,13 @@ export class CardRepository {
         Number.isFinite(configuredLimit) ? configuredLimit : DEFAULT_REVIEW_SETTINGS.newCardsPerDay,
         progress.newCards,
       ),
-      today: row?.today ?? 0,
+      today: getAvailableReviewCardCount(
+        row?.today ?? 0,
+        Number.isFinite(configuredReviewLimit)
+          ? configuredReviewLimit
+          : DEFAULT_REVIEW_SETTINGS.reviewsPerDay,
+        progress.reviews,
+      ),
       future: row?.future ?? 0,
     };
     return counts;

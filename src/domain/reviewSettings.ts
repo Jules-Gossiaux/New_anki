@@ -43,3 +43,11 @@ export function getAvailableNewCardCount(
 ): number {
   return Math.min(deckNewCards, Math.max(0, dailyLimit - studiedToday));
 }
+
+export function getAvailableReviewCardCount(
+  deckReviewCards: number,
+  dailyLimit: number,
+  studiedToday: number,
+): number {
+  return Math.min(deckReviewCards, Math.max(0, dailyLimit - studiedToday));
+}
