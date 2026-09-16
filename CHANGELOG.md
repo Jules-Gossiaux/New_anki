@@ -4,6 +4,7 @@
 
 ### Added
 
+- Made the card editor open immediately and keep all fields inside one bounded, scrollable modal panel.
 - Made the card editor scrollable with the keyboard open and refreshed note/tag previews immediately after saving.
 - Added note-level tag management in the card editor, including normalized creation, display and removal shared by both study directions.
 - Added independent forward and reverse study cards for every note, each with its own FSRS state and review history.
