@@ -35,3 +35,11 @@ export function validateReviewSettings(settings: ReviewSettings): ReviewSettings
     relearningSteps: steps(settings.relearningSteps, 'Relearning steps'),
   };
 }
+
+export function getAvailableNewCardCount(
+  deckNewCards: number,
+  dailyLimit: number,
+  studiedToday: number,
+): number {
+  return Math.min(deckNewCards, Math.max(0, dailyLimit - studiedToday));
+}

@@ -6,7 +6,7 @@ import {
   selectNextStudyCard,
 } from '../../src/application/studyQueue';
 import { CARD_STATES, type Card } from '../../src/domain/cards';
-import { DEFAULT_REVIEW_SETTINGS } from '../../src/domain/reviewSettings';
+import { DEFAULT_REVIEW_SETTINGS, getAvailableNewCardCount } from '../../src/domain/reviewSettings';
 
 function card(id: string, state: number, dueAt: string | null): Card {
   return {
@@ -98,5 +98,10 @@ describe('studyQueue', () => {
         { newCards: 20, reviews: 200 },
       ),
     ).toEqual([]);
+  });
+
+  it('shows only the new cards still available within the daily limit', () => {
+    expect(getAvailableNewCardCount(30, 5, 5)).toBe(0);
+    expect(getAvailableNewCardCount(10, 5, 3)).toBe(2);
   });
 });

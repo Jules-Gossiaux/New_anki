@@ -296,7 +296,9 @@ function DeckCard({
         }}
         accessibilityRole="button"
       >
-        <Text style={styles.addCardsText}>Ajouter des cartes</Text>
+        <Text style={styles.addCardsText}>
+          {counts && counts.total > 0 ? 'Modifier les cartes du deck' : 'Ajouter des cartes'}
+        </Text>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
       {deck.depth === 0 && (
