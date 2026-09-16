@@ -16,7 +16,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
-import { getCardSides, type Card } from '../../domain/cards';
+import {
+  CARD_TEMPLATES,
+  getCardSides,
+  type Card,
+  type TemplateSelection,
+} from '../../domain/cards';
 import type { Note } from '../../domain/notes';
 import { normalizeTagName, type Tag } from '../../domain/tags';
 import {
@@ -51,6 +56,7 @@ export default function DeckDetailScreen() {
   const [extra, setExtra] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState('');
+  const [templateSelection, setTemplateSelection] = useState<TemplateSelection>('both');
   const [isLoadingEditDetails, setIsLoadingEditDetails] = useState(false);
   const editRequestId = useRef(0);
 
@@ -83,6 +89,7 @@ export default function DeckDetailScreen() {
     setExtra('');
     setTags([]);
     setTagDraft('');
+    setTemplateSelection('both');
     setIsLoadingEditDetails(false);
   };
 
@@ -95,6 +102,7 @@ export default function DeckDetailScreen() {
     setExtra('');
     setTags([]);
     setTagDraft('');
+    setTemplateSelection('both');
     setIsLoadingEditDetails(false);
     setModalVisible(true);
   };
@@ -115,12 +123,14 @@ export default function DeckDetailScreen() {
     void Promise.all([
       new NoteRepository(db).getById(card.noteId),
       new TagRepository(db).listByNote(card.noteId),
+      cardRepository.listByNote(card.noteId),
     ])
-      .then(([note, cardTags]) => {
+      .then(([note, cardTags, noteCards]) => {
         if (editRequestId.current !== requestId || !note) return;
         setExample(note.example ?? '');
         setExtra(note.extra ?? '');
         setTags(cardTags.map((tag) => tag.name));
+        setTemplateSelection(getTemplateSelection(noteCards));
       })
       .catch(() => {
         if (editRequestId.current === requestId) {
@@ -146,15 +156,23 @@ export default function DeckDetailScreen() {
     if (!deckId) return;
     try {
       if (editingCard) {
-        await new UpdateVocabularyCard(db).execute(editingCard.id, {
-          front,
-          back,
-          example,
-          extra,
-          tags,
-        });
+        await new UpdateVocabularyCard(db).execute(
+          editingCard.id,
+          {
+            front,
+            back,
+            example,
+            extra,
+            tags,
+          },
+          templateSelection,
+        );
       } else {
-        await new CreateVocabularyCard(db).execute(deckId, { front, back, example, extra, tags });
+        await new CreateVocabularyCard(db).execute(
+          deckId,
+          { front, back, example, extra, tags },
+          templateSelection,
+        );
       }
       closeModal();
       await load();
@@ -298,6 +316,30 @@ export default function DeckDetailScreen() {
               style={styles.input}
               accessibilityLabel="Reponse de la carte"
             />
+            <Text style={styles.fieldLabel}>Sens d’étude</Text>
+            <View style={styles.templateOptions}>
+              {templateOptions.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.templateOption,
+                    templateSelection === option.value && styles.templateOptionSelected,
+                  ]}
+                  onPress={() => setTemplateSelection(option.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: templateSelection === option.value }}
+                >
+                  <Text
+                    style={[
+                      styles.templateOptionText,
+                      templateSelection === option.value && styles.templateOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
             <Text style={styles.fieldLabel}>Exemple (facultatif)</Text>
             <TextInput
               placeholder="Ex. perseverance takes practice"
@@ -358,6 +400,19 @@ export default function DeckDetailScreen() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+const templateOptions: ReadonlyArray<{ value: TemplateSelection; label: string }> = [
+  { value: 'both', label: 'Les deux sens' },
+  { value: 'forward', label: 'Mot → traduction' },
+  { value: 'reverse', label: 'Traduction → mot' },
+];
+
+function getTemplateSelection(cards: Card[]): TemplateSelection {
+  const hasForward = cards.some((card) => card.templateKey === CARD_TEMPLATES.forward);
+  const hasReverse = cards.some((card) => card.templateKey === CARD_TEMPLATES.reverse);
+  if (hasForward && hasReverse) return 'both';
+  return hasForward ? 'forward' : 'reverse';
 }
 
 function VocabularyCard({
@@ -618,6 +673,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
+  templateOptions: { gap: 8 },
+  templateOption: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#D0D5DD',
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  templateOptionSelected: { backgroundColor: '#EAF4FF', borderColor: '#1687F8' },
+  templateOptionText: { color: '#475467', fontSize: 14, fontWeight: '700' },
+  templateOptionTextSelected: { color: '#1674D1' },
   saveButton: {
     alignItems: 'center',
     backgroundColor: '#1687F8',
