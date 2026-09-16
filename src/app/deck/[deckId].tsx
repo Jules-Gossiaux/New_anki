@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
 import type { Card } from '../../domain/cards';
+import type { Note } from '../../domain/notes';
 import {
   formatCardSchedule,
   getCardDisplayStatus,
@@ -277,7 +278,19 @@ function VocabularyCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const db = useSQLiteContext();
+  const [note, setNote] = useState<Note | null>(null);
   const status = getCardDisplayStatus(card, new Date());
+
+  useEffect(() => {
+    let active = true;
+    void new NoteRepository(db).getById(card.noteId).then((loaded) => {
+      if (active) setNote(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [card.noteId, db]);
 
   return (
     <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
@@ -295,6 +308,8 @@ function VocabularyCard({
       <Text style={styles.schedule}>{formatCardSchedule(card, new Date())}</Text>
       <View style={[styles.divider, stylesByStatus[status].divider]} />
       <Text style={styles.back}>{card.back}</Text>
+      {note?.example && <Text style={styles.cardExample}>{note.example}</Text>}
+      {note?.extra && <Text style={styles.cardExtra}>{note.extra}</Text>}
       <Pressable style={styles.cardEditAction} onPress={onEdit} accessibilityRole="button">
         <Text style={styles.cardEditText}>Modifier la carte</Text>
       </Pressable>
@@ -410,6 +425,8 @@ const styles = StyleSheet.create({
   divider: { backgroundColor: '#EEF2F6', height: 1, marginVertical: 15 },
   back: { color: '#475467', fontSize: 18, fontWeight: '500' },
   schedule: { color: '#667085', fontSize: 13, marginTop: 8 },
+  cardExample: { color: '#344054', fontSize: 15, fontStyle: 'italic', marginTop: 12 },
+  cardExtra: { color: '#667085', fontSize: 14, marginTop: 6 },
   cardDeleteAction: { alignSelf: 'flex-start', marginTop: 17 },
   cardEditAction: { alignSelf: 'flex-start', marginTop: 17 },
   cardEditText: { color: '#1674D1', fontSize: 13, fontWeight: '700' },

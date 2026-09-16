@@ -32,6 +32,8 @@ The card editor derives its display category from the same UTC scheduling semant
 
 Global review settings are stored as validated key/value entries in `app_settings`. Daily new-card and review limits are computed from distinct cards reviewed during the current UTC day, while learning and relearning steps are passed to the pinned FSRS adapter.
 
+The study view reveals a note's optional example and extra fields after the answer, and the card editor displays the same fields. They remain note content and are loaded through the note repository rather than duplicated on the card entity.
+
 Deck counters expose remaining daily capacity: blue is capped by the remaining new-card quota, and red is capped by the remaining review quota. Green remains the count scheduled after today.
 
 The deck editor displays each card's scheduling category and exact `due_at` in the device locale for diagnostic clarity. A study session that is empty because a daily limit was reached reports that reason separately from a session with no cards scheduled for today.

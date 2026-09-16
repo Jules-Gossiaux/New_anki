@@ -4,6 +4,7 @@
 
 ### Added
 
+- Displayed optional examples and extra information after answer reveal and in the card editor.
 - Added full editing for vocabulary cards' front, back, example and extra fields. Front/back changes reset only the current FSRS state while preserving review history.
 - Added global daily review limits and configurable FSRS learning/relearning steps with persistent settings.
 - Updated deck new-card counters to show the remaining global daily quota and clarified the deck-card management action label.
