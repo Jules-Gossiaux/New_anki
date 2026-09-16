@@ -9,6 +9,7 @@
 - Added readable scheduling details to cards in the editor and an explicit daily-limit message in empty study sessions.
 - Updated today's deck counter to show the number of review cards still available under the global daily review limit.
 - Added explanations for learning and relearning steps and fixed settings-field editing so intermediate input is preserved.
+- Replaced the settings save confirmation dialog with a non-blocking toast.
 - Aligned card-editor colors and statuses with the scheduling categories: blue for new cards, red for cards scheduled today, and green for cards scheduled after today.
 - Added the first study flow with new/due card selection across nested decks, answer reveal, Again/Hard/Good/Easy ratings and atomic FSRS review persistence.
 - Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.

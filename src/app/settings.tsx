@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,6 +22,8 @@ export default function SettingsScreen() {
     DEFAULT_REVIEW_SETTINGS.relearningSteps.join(', '),
   );
   const [isSaving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     void repository.get().then((loaded) => {
@@ -31,6 +33,18 @@ export default function SettingsScreen() {
     });
   }, [repository]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    };
+  }, []);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    toastTimeout.current = setTimeout(() => setToastMessage(null), 2500);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -39,7 +53,7 @@ export default function SettingsScreen() {
         learningSteps: parseSteps(learningStepsText),
         relearningSteps: parseSteps(relearningStepsText),
       });
-      Alert.alert('Réglages enregistrés', 'Les limites seront appliquées à la prochaine session.');
+      showToast('Réglages enregistrés');
     } catch (error) {
       Alert.alert('Réglages invalides', error instanceof Error ? error.message : 'Erreur inconnue');
     } finally {
@@ -105,6 +119,11 @@ export default function SettingsScreen() {
           <Text style={styles.saveText}>{isSaving ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
       </ScrollView>
+      {toastMessage && (
+        <View pointerEvents="none" style={styles.toast}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -187,4 +206,14 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  toast: {
+    alignSelf: 'center',
+    backgroundColor: '#344054',
+    borderRadius: 22,
+    bottom: 28,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    position: 'absolute',
+  },
+  toastText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

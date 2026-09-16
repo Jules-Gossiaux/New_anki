@@ -32,4 +32,13 @@ describe('settings screen', () => {
 
     expect(screen.getByDisplayValue('1')).toBeTruthy();
   });
+
+  it('shows a non-blocking toast after saving', async () => {
+    const screen = render(<SettingsScreen />);
+
+    await waitFor(() => expect(screen.getByText('Enregistrer')).toBeTruthy());
+    fireEvent.press(screen.getByText('Enregistrer'));
+
+    await waitFor(() => expect(screen.getByText('Réglages enregistrés')).toBeTruthy());
+  });
 });
