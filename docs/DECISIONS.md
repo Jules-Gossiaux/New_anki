@@ -19,3 +19,7 @@ An `.apkg` file includes more than CSV fields (collection database, templates, s
 ## ADR-0005 — Intervention feasibility gate (accepted)
 
 Phone unlock and cross-app usage behavior differs substantially by platform and permission model. We will document evidence and use supported notification/extension mechanisms instead of simulating a universal unlock interceptor.
+
+## ADR-0006 - Scope of the first settings and card-model iteration (accepted)
+
+Revision settings are global application settings rather than per-deck settings for the first implementation. The initial card-model iteration will provide two fixed templates: front-to-back and back-to-front. Editing a note preserves its append-only review history; changing a primary field deeply may reset the card's current FSRS state while retaining all historical review logs. `.apkg` export is explicitly deferred until after the import and core editing work.
