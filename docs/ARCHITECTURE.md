@@ -24,13 +24,15 @@ Temporal data is explicit: event timestamps such as `created_at`, `updated_at` a
 
 SQLite is the proposed local store because it gives transactions, migrations, indexes and a future sync-friendly relational model. Repositories own SQL. Schema changes are numbered migrations and tested from a clean database and from the previous migration.
 
-The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`. Migration 2 adds the persisted FSRS state required to resume scheduling exactly: last review timestamp, scheduled days, elapsed days and learning steps.
+The initial schema is implemented through Expo SQLite and currently contains `decks`, `notes`, `cards`, `review_logs`, `tags`, `note_tags` and `app_settings`. Deck deletion is soft and refuses to delete non-empty decks; foreign keys use restrictive deletion semantics to prevent accidental loss. The migration runner applies each version inside a transaction and records the SQLite `user_version`. Migration 2 adds the persisted FSRS state required to resume scheduling exactly: last review timestamp, scheduled days, elapsed days and learning steps. Migration 3 adds a reverse card for each existing forward card.
 
 Note creation and card creation are orchestrated by an application use case and committed in one SQLite transaction. Repositories remain responsible for SQL and mapping persistence rows to domain types; the UI does not access SQL directly. New cards expose a neutral `new` state until their first review, after which the isolated FSRS adapter persists the resulting scheduling state and review log atomically.
 
-The card editor derives its display category from the same UTC scheduling semantics as deck counters: new cards are blue, non-new cards scheduled today are red, and cards scheduled after today are green. This presentation logic does not alter FSRS state.
+The card editor derives its display category from the same UTC scheduling semantics as deck counters: new cards are blue, non-new cards scheduled today are red, and cards scheduled after today are green. Each note now creates a forward and reverse card; both share note content but have independent scheduling state and review history. This presentation logic does not alter FSRS state.
 
 Global review settings are stored as validated key/value entries in `app_settings`. Daily new-card and review limits are computed from distinct cards reviewed during the current UTC day, while learning and relearning steps are passed to the pinned FSRS adapter.
+
+The study view reveals a note's optional example and extra fields after the answer, and the card editor displays the same fields. They remain note content and are loaded through the note repository rather than duplicated on the card entity.
 
 Deck counters expose remaining daily capacity: blue is capped by the remaining new-card quota, and red is capped by the remaining review quota. Green remains the count scheduled after today.
 

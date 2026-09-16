@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
-import type { Card } from '../../domain/cards';
+import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
+import { getCardSides, type Card } from '../../domain/cards';
+import type { Note } from '../../domain/notes';
 import {
   formatCardSchedule,
   getCardDisplayStatus,
@@ -23,6 +25,7 @@ import {
 } from '../../domain/cardStatus';
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -38,8 +41,11 @@ export default function DeckDetailScreen() {
     future: 0,
   });
   const [isModalVisible, setModalVisible] = useState(false);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
+  const [example, setExample] = useState('');
+  const [extra, setExtra] = useState('');
 
   const load = useCallback(async () => {
     if (!deckId) return;
@@ -61,14 +67,37 @@ export default function DeckDetailScreen() {
 
   const closeModal = () => {
     setModalVisible(false);
+    setEditingCard(null);
     setFront('');
     setBack('');
+    setExample('');
+    setExtra('');
+  };
+
+  const openEditModal = async (card: Card) => {
+    const note = await new NoteRepository(db).getById(card.noteId);
+    if (!note) return;
+    setEditingCard(card);
+    setFront(card.front);
+    setBack(card.back);
+    setExample(note.example ?? '');
+    setExtra(note.extra ?? '');
+    setModalVisible(true);
   };
 
   const createCard = async () => {
     if (!deckId) return;
     try {
-      await new CreateVocabularyCard(db).execute(deckId, { front, back });
+      if (editingCard) {
+        await new UpdateVocabularyCard(db).execute(editingCard.id, {
+          front,
+          back,
+          example,
+          extra,
+        });
+      } else {
+        await new CreateVocabularyCard(db).execute(deckId, { front, back, example, extra });
+      }
       closeModal();
       await load();
     } catch (error) {
@@ -157,7 +186,12 @@ export default function DeckDetailScreen() {
             ) : (
               <View style={styles.cardList}>
                 {cards.map((card) => (
-                  <VocabularyCard key={card.id} card={card} onDelete={() => deleteCard(card)} />
+                  <VocabularyCard
+                    key={card.id}
+                    card={card}
+                    onEdit={() => openEditModal(card)}
+                    onDelete={() => deleteCard(card)}
+                  />
                 ))}
               </View>
             )}
@@ -174,8 +208,12 @@ export default function DeckDetailScreen() {
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalEyebrow}>NOUVELLE CARTE</Text>
-                <Text style={styles.modalTitle}>Ajouter du vocabulaire</Text>
+                <Text style={styles.modalEyebrow}>
+                  {editingCard ? 'MODIFIER LA CARTE' : 'NOUVELLE CARTE'}
+                </Text>
+                <Text style={styles.modalTitle}>
+                  {editingCard ? 'Modifier le vocabulaire' : 'Ajouter du vocabulaire'}
+                </Text>
               </View>
               <Pressable onPress={closeModal} accessibilityLabel="Fermer">
                 <Text style={styles.closeText}>×</Text>
@@ -200,8 +238,29 @@ export default function DeckDetailScreen() {
               style={styles.input}
               accessibilityLabel="Reponse de la carte"
             />
+            <Text style={styles.fieldLabel}>Exemple (facultatif)</Text>
+            <TextInput
+              placeholder="Ex. perseverance takes practice"
+              placeholderTextColor="#98A2B3"
+              value={example}
+              onChangeText={setExample}
+              style={styles.input}
+              accessibilityLabel="Exemple de la carte"
+            />
+            <Text style={styles.fieldLabel}>Informations supplémentaires (facultatif)</Text>
+            <TextInput
+              placeholder="Notes personnelles"
+              placeholderTextColor="#98A2B3"
+              value={extra}
+              onChangeText={setExtra}
+              style={[styles.input, styles.multilineInput]}
+              multiline
+              accessibilityLabel="Informations supplémentaires de la carte"
+            />
             <Pressable style={styles.saveButton} onPress={() => void createCard()}>
-              <Text style={styles.saveButtonText}>Ajouter la carte</Text>
+              <Text style={styles.saveButtonText}>
+                {editingCard ? 'Enregistrer les modifications' : 'Ajouter la carte'}
+              </Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -210,8 +269,29 @@ export default function DeckDetailScreen() {
   );
 }
 
-function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }) {
+function VocabularyCard({
+  card,
+  onEdit,
+  onDelete,
+}: {
+  card: Card;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const db = useSQLiteContext();
+  const [note, setNote] = useState<Note | null>(null);
   const status = getCardDisplayStatus(card, new Date());
+  const cardSides = getCardSides(card);
+
+  useEffect(() => {
+    let active = true;
+    void new NoteRepository(db).getById(card.noteId).then((loaded) => {
+      if (active) setNote(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [card.noteId, db]);
 
   return (
     <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
@@ -225,10 +305,15 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
           <Text style={styles.deleteIcon}>•••</Text>
         </Pressable>
       </View>
-      <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <Text style={[styles.front, stylesByStatus[status].front]}>{cardSides.prompt}</Text>
       <Text style={styles.schedule}>{formatCardSchedule(card, new Date())}</Text>
       <View style={[styles.divider, stylesByStatus[status].divider]} />
-      <Text style={styles.back}>{card.back}</Text>
+      <Text style={styles.back}>{cardSides.answer}</Text>
+      {note?.example && <Text style={styles.cardExample}>{note.example}</Text>}
+      {note?.extra && <Text style={styles.cardExtra}>{note.extra}</Text>}
+      <Pressable style={styles.cardEditAction} onPress={onEdit} accessibilityRole="button">
+        <Text style={styles.cardEditText}>Modifier la carte</Text>
+      </Pressable>
       <Pressable style={styles.cardDeleteAction} onPress={onDelete} accessibilityRole="button">
         <Text style={styles.cardDeleteText}>Supprimer la carte</Text>
       </Pressable>
@@ -341,8 +426,13 @@ const styles = StyleSheet.create({
   divider: { backgroundColor: '#EEF2F6', height: 1, marginVertical: 15 },
   back: { color: '#475467', fontSize: 18, fontWeight: '500' },
   schedule: { color: '#667085', fontSize: 13, marginTop: 8 },
+  cardExample: { color: '#344054', fontSize: 15, fontStyle: 'italic', marginTop: 12 },
+  cardExtra: { color: '#667085', fontSize: 14, marginTop: 6 },
   cardDeleteAction: { alignSelf: 'flex-start', marginTop: 17 },
+  cardEditAction: { alignSelf: 'flex-start', marginTop: 17 },
+  cardEditText: { color: '#1674D1', fontSize: 13, fontWeight: '700' },
   cardDeleteText: { color: '#B42318', fontSize: 13, fontWeight: '700' },
+  multilineInput: { minHeight: 72, textAlignVertical: 'top' },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

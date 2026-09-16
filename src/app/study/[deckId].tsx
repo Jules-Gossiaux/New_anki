@@ -5,12 +5,14 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
 import { applyDailyLimits, selectNextStudyCard } from '../../application/studyQueue';
-import type { Card, ReviewRating } from '../../domain/cards';
+import { getCardSides, type Card, type ReviewRating } from '../../domain/cards';
+import type { Note } from '../../domain/notes';
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
+import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
 import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
 
 const ratings: { label: string; value: ReviewRating; color: string }[] = [
@@ -43,9 +45,11 @@ export default function StudyScreen() {
   const [isDailyLimitReached, setDailyLimitReached] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
+  const [noteDetails, setNoteDetails] = useState<Note | null>(null);
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
+  const cardSides = card ? getCardSides(card) : null;
   const nextFutureCard = selection.isEarly ? card : undefined;
   const remainingSeconds = 0;
 
@@ -82,6 +86,22 @@ export default function StudyScreen() {
   useEffect(() => {
     setPreviews(card ? scheduler.preview(card, now) : null);
   }, [card?.id, now.getTime(), scheduler]);
+
+  useEffect(() => {
+    let active = true;
+    if (!card) {
+      setNoteDetails(null);
+      return () => {
+        active = false;
+      };
+    }
+    void new NoteRepository(db).getById(card.noteId).then((note) => {
+      if (active) setNoteDetails(note);
+    });
+    return () => {
+      active = false;
+    };
+  }, [card?.id, card?.noteId, db]);
 
   const submitRating = async (rating: ReviewRating) => {
     if (!card || isSubmitting) return;
@@ -150,11 +170,15 @@ export default function StudyScreen() {
           <View style={styles.studyArea}>
             <Pressable style={styles.card} onPress={() => setRevealed((value) => !value)}>
               {selection.isEarly && <Text style={styles.earlyLabel}>PRÉVUE AUJOURD’HUI</Text>}
-              <Text style={styles.front}>{card.front}</Text>
+              <Text style={styles.front}>{cardSides?.prompt}</Text>
               {revealed ? (
                 <>
                   <View style={styles.divider} />
-                  <Text style={styles.back}>{card.back}</Text>
+                  <Text style={styles.back}>{cardSides?.answer}</Text>
+                  {noteDetails?.example && (
+                    <Text style={styles.example}>{noteDetails.example}</Text>
+                  )}
+                  {noteDetails?.extra && <Text style={styles.extra}>{noteDetails.extra}</Text>}
                 </>
               ) : (
                 <Text style={styles.prompt}>Touchez l’écran pour révéler la réponse</Text>
@@ -205,6 +229,14 @@ const styles = StyleSheet.create({
   },
   divider: { backgroundColor: '#D0D5DD', height: 1, marginVertical: 28, width: '65%' },
   back: { color: '#475467', fontSize: 28, fontWeight: '600', textAlign: 'center' },
+  example: {
+    color: '#344054',
+    fontSize: 18,
+    fontStyle: 'italic',
+    marginTop: 22,
+    textAlign: 'center',
+  },
+  extra: { color: '#667085', fontSize: 15, marginTop: 12, textAlign: 'center' },
   prompt: { color: '#98A2B3', fontSize: 15, marginTop: 92, textAlign: 'center' },
   ratingGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   ratingButton: {

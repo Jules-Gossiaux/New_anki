@@ -4,7 +4,7 @@ Vocabulary is a mobile-first vocabulary learning app aiming to combine Anki's te
 
 ## Status
 
-Phase A is in progress. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, global revision settings, FSRS scheduling, review history and the first study/review flow are in place. Decks, notes and basic cards can be created, persisted, displayed and deleted through Android-tested management flows. The remaining Phase A work includes full note editing, tags/templates UX, staged import/export and broader compatibility validation.
+Phase A is in progress. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, global revision settings, FSRS scheduling, review history and the first study/review flow are in place. Decks, notes and bidirectional cards can be created, edited, persisted, displayed and deleted through the current management flows. The remaining Phase A work includes tag UX, staged import/export and broader compatibility validation.
 
 ## Quick start
 
@@ -34,4 +34,4 @@ Read [AGENTS.md](AGENTS.md) before coding. The architecture and staged plan are 
 
 ## Important limitations
 
-Full note editing, tags/templates UX and full Anki `.apkg` import/export are not implemented yet. CSV convenience import/export is not available either, so no Anki compatibility claim is made. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.
+Tag UX and full Anki `.apkg` import/export are not implemented yet. CSV convenience import/export is not available either, so no Anki compatibility claim is made. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.

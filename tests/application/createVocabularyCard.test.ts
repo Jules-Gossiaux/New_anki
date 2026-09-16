@@ -22,6 +22,10 @@ describe('CreateVocabularyCard', () => {
 
     expect(result.note.id).toBe('generated-id');
     expect(result.card.noteId).toBe('generated-id');
+    expect(result.card.templateKey).toBe('basic-forward');
+    expect(result.reverseCard.noteId).toBe('generated-id');
+    expect(result.reverseCard.templateKey).toBe('basic-reverse');
+    expect(db.runAsync).toHaveBeenCalledTimes(3);
     expect(executed).toEqual(['BEGIN IMMEDIATE;', 'COMMIT;']);
   });
 });

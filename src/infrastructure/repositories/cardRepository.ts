@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import type { Card, CreateCardInput } from '../../domain/cards';
+import { CARD_TEMPLATES, type Card, type CreateCardInput } from '../../domain/cards';
 import {
   DEFAULT_REVIEW_SETTINGS,
   getAvailableNewCardCount,
@@ -90,7 +90,7 @@ export class CardRepository {
       id: randomUUID(),
       noteId: input.noteId,
       deckId: input.deckId,
-      templateKey: input.templateKey?.trim() || 'basic-forward',
+      templateKey: input.templateKey || CARD_TEMPLATES.forward,
       state: 0,
       dueAt: null,
       dueDay: null,
@@ -309,6 +309,29 @@ export class CardRepository {
       id,
     );
     if (result.changes === 0) throw new Error('Card does not exist.');
+  }
+
+  public async resetScheduling(id: string): Promise<void> {
+    const result = await this.db.runAsync(
+      `UPDATE cards SET state = 0, due_at = NULL, due_day = NULL, stability = NULL,
+       difficulty = NULL, last_review_at = NULL, scheduled_days = 0, elapsed_days = 0,
+       learning_steps = 0, reps = 0, lapses = 0, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      id,
+    );
+    if (result.changes === 0) throw new Error('Card does not exist.');
+  }
+
+  public async resetSchedulingByNoteId(noteId: string): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE cards SET state = 0, due_at = NULL, due_day = NULL, stability = NULL,
+       difficulty = NULL, last_review_at = NULL, scheduled_days = 0, elapsed_days = 0,
+       learning_steps = 0, reps = 0, lapses = 0, updated_at = ?
+       WHERE note_id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      noteId,
+    );
   }
 
   public async remove(id: string): Promise<void> {

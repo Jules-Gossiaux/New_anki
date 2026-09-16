@@ -4,6 +4,9 @@
 
 ### Added
 
+- Added independent forward and reverse study cards for every note, each with its own FSRS state and review history.
+- Displayed optional examples and extra information after answer reveal and in the card editor.
+- Added full editing for vocabulary cards' front, back, example and extra fields. Front/back changes reset only the current FSRS state while preserving review history.
 - Added global daily review limits and configurable FSRS learning/relearning steps with persistent settings.
 - Updated deck new-card counters to show the remaining global daily quota and clarified the deck-card management action label.
 - Added readable scheduling details to cards in the editor and an explicit daily-limit message in empty study sessions.
