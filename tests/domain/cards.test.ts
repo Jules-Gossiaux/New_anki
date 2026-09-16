@@ -1,4 +1,9 @@
-import { CARD_TEMPLATES, getCardSides } from '../../src/domain/cards';
+import {
+  CARD_TEMPLATES,
+  getCardSides,
+  includesForward,
+  includesReverse,
+} from '../../src/domain/cards';
 
 describe('card templates', () => {
   it('uses the note front as the prompt for forward cards', () => {
@@ -17,5 +22,14 @@ describe('card templates', () => {
       prompt: 'bonjour',
       answer: 'hello',
     });
+  });
+
+  it.each([
+    ['both', true, true],
+    ['forward', true, false],
+    ['reverse', false, true],
+  ] as const)('maps the %s selection to its directions', (selection, forward, reverse) => {
+    expect(includesForward(selection)).toBe(forward);
+    expect(includesReverse(selection)).toBe(reverse);
   });
 });

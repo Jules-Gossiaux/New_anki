@@ -145,6 +145,21 @@ export class CardRepository {
     return rows.map(toCard);
   }
 
+  public async listByNote(noteId: string): Promise<Card[]> {
+    const rows = await this.db.getAllAsync<CardRow>(
+      `SELECT cards.id, cards.note_id, cards.deck_id, cards.template_key, cards.state,
+              cards.due_at, cards.due_day, cards.stability, cards.difficulty,
+              cards.last_review_at, cards.scheduled_days, cards.elapsed_days, cards.learning_steps,
+              cards.reps, cards.lapses, notes.front, notes.back,
+              cards.created_at, cards.updated_at
+       FROM cards JOIN notes ON notes.id = cards.note_id
+       WHERE cards.note_id = ? AND cards.deleted_at IS NULL AND notes.deleted_at IS NULL
+       ORDER BY cards.template_key ASC`,
+      noteId,
+    );
+    return rows.map(toCard);
+  }
+
   public async listStudyQueue(deckId: string, now: Date): Promise<Card[]> {
     const todayStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),

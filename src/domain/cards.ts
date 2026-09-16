@@ -11,6 +11,17 @@ export const CARD_TEMPLATES = {
 } as const;
 
 export type CardTemplateKey = (typeof CARD_TEMPLATES)[keyof typeof CARD_TEMPLATES];
+export type TemplateSelection = 'both' | 'forward' | 'reverse';
+
+export const TEMPLATE_SELECTIONS: readonly TemplateSelection[] = ['both', 'forward', 'reverse'];
+
+export function includesForward(selection: TemplateSelection): boolean {
+  return selection === 'both' || selection === 'forward';
+}
+
+export function includesReverse(selection: TemplateSelection): boolean {
+  return selection === 'both' || selection === 'reverse';
+}
 
 export function isReverseCard(templateKey: string): boolean {
   return templateKey === CARD_TEMPLATES.reverse;
