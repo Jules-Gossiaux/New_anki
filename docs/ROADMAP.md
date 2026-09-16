@@ -4,9 +4,9 @@
 
 Documentation, Expo shell, TypeScript, navigation, quality scripts, agent workflow and platform feasibility investigation.
 
-## Phase A — Anki-compatible foundation (current)
+## Phase A — Anki-compatible foundation (current; settings slice complete)
 
-Schema/migrations, repositories, nested decks, notes/cards, validation, global revision settings, pinned FSRS integration, review history and the first study use case are implemented. Full note editing, two fixed templates, tag UX and staged `.apkg` import remain open. `.apkg` export is deliberately deferred until after the import and core editing work.
+Schema/migrations, repositories, nested decks, notes/cards, validation, global revision settings, pinned FSRS integration, review history and the first study use case are implemented. The settings slice is complete: daily new-card and review limits are global, persist locally, reset by UTC day, and learning/relearning steps are configurable with validation and contextual help. Full note editing, two fixed templates, tag UX and staged `.apkg` import remain open. `.apkg` export is deliberately deferred until after the import and core editing work.
 
 ## Phase B — first product innovations
 
