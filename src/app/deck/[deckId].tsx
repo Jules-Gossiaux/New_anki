@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
-import type { Card } from '../../domain/cards';
+import { getCardSides, type Card } from '../../domain/cards';
 import type { Note } from '../../domain/notes';
 import {
   formatCardSchedule,
@@ -281,6 +281,7 @@ function VocabularyCard({
   const db = useSQLiteContext();
   const [note, setNote] = useState<Note | null>(null);
   const status = getCardDisplayStatus(card, new Date());
+  const cardSides = getCardSides(card);
 
   useEffect(() => {
     let active = true;
@@ -304,10 +305,10 @@ function VocabularyCard({
           <Text style={styles.deleteIcon}>•••</Text>
         </Pressable>
       </View>
-      <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <Text style={[styles.front, stylesByStatus[status].front]}>{cardSides.prompt}</Text>
       <Text style={styles.schedule}>{formatCardSchedule(card, new Date())}</Text>
       <View style={[styles.divider, stylesByStatus[status].divider]} />
-      <Text style={styles.back}>{card.back}</Text>
+      <Text style={styles.back}>{cardSides.answer}</Text>
       {note?.example && <Text style={styles.cardExample}>{note.example}</Text>}
       {note?.extra && <Text style={styles.cardExtra}>{note.extra}</Text>}
       <Pressable style={styles.cardEditAction} onPress={onEdit} accessibilityRole="button">

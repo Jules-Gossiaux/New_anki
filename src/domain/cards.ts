@@ -5,6 +5,26 @@ export const CARD_STATES = {
   relearning: 3,
 } as const;
 
+export const CARD_TEMPLATES = {
+  forward: 'basic-forward',
+  reverse: 'basic-reverse',
+} as const;
+
+export type CardTemplateKey = (typeof CARD_TEMPLATES)[keyof typeof CARD_TEMPLATES];
+
+export function isReverseCard(templateKey: string): boolean {
+  return templateKey === CARD_TEMPLATES.reverse;
+}
+
+export function getCardSides(card: Pick<Card, 'templateKey' | 'front' | 'back'>): {
+  prompt: string;
+  answer: string;
+} {
+  return isReverseCard(card.templateKey)
+    ? { prompt: card.back, answer: card.front }
+    : { prompt: card.front, answer: card.back };
+}
+
 export type Card = {
   id: string;
   noteId: string;
@@ -32,5 +52,5 @@ export type ReviewRating = 'again' | 'hard' | 'good' | 'easy';
 export type CreateCardInput = {
   noteId: string;
   deckId: string;
-  templateKey?: string;
+  templateKey?: CardTemplateKey;
 };

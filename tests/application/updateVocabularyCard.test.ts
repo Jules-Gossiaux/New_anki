@@ -72,7 +72,7 @@ describe('UpdateVocabularyCard', () => {
     expect(db.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE cards SET state = 0'),
       expect.any(String),
-      'card-id',
+      'note-id',
     );
   });
 

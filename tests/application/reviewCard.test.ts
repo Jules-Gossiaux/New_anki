@@ -89,7 +89,7 @@ describe('ReviewCard', () => {
       null,
       5,
       '1.0.0',
-      2,
+      3,
     ]);
   });
 });

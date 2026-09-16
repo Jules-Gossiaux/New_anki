@@ -18,7 +18,7 @@ export class UpdateVocabularyCard {
     await this.db.execAsync('BEGIN IMMEDIATE;');
     try {
       const updatedNote = await noteRepository.update(note.id, input);
-      if (resetScheduling) await cardRepository.resetScheduling(card.id);
+      if (resetScheduling) await cardRepository.resetSchedulingByNoteId(note.id);
       await this.db.execAsync('COMMIT;');
       return { note: updatedNote, resetScheduling };
     } catch (error) {

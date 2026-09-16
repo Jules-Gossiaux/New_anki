@@ -1,8 +1,9 @@
 import type { DatabaseClient } from '../client';
 import { initialMigration } from './001_initial';
 import { schedulerStateMigration } from './002_scheduler_state';
+import { bidirectionalCardsMigration } from './003_bidirectional_cards';
 
-const migrations = [initialMigration, schedulerStateMigration];
+const migrations = [initialMigration, schedulerStateMigration, bidirectionalCardsMigration];
 
 export async function migrateDatabase(db: DatabaseClient): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON;');

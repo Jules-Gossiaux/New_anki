@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
 import { applyDailyLimits, selectNextStudyCard } from '../../application/studyQueue';
-import type { Card, ReviewRating } from '../../domain/cards';
+import { getCardSides, type Card, type ReviewRating } from '../../domain/cards';
 import type { Note } from '../../domain/notes';
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { SchedulingPreview } from '../../domain/scheduler';
@@ -49,6 +49,7 @@ export default function StudyScreen() {
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
+  const cardSides = card ? getCardSides(card) : null;
   const nextFutureCard = selection.isEarly ? card : undefined;
   const remainingSeconds = 0;
 
@@ -169,11 +170,11 @@ export default function StudyScreen() {
           <View style={styles.studyArea}>
             <Pressable style={styles.card} onPress={() => setRevealed((value) => !value)}>
               {selection.isEarly && <Text style={styles.earlyLabel}>PRÉVUE AUJOURD’HUI</Text>}
-              <Text style={styles.front}>{card.front}</Text>
+              <Text style={styles.front}>{cardSides?.prompt}</Text>
               {revealed ? (
                 <>
                   <View style={styles.divider} />
-                  <Text style={styles.back}>{card.back}</Text>
+                  <Text style={styles.back}>{cardSides?.answer}</Text>
                   {noteDetails?.example && (
                     <Text style={styles.example}>{noteDetails.example}</Text>
                   )}
