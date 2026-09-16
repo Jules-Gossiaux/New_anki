@@ -15,16 +15,30 @@ export default function SettingsScreen() {
   const router = useRouter();
   const repository = useMemo(() => new ReviewSettingsRepository(db), [db]);
   const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
+  const [learningStepsText, setLearningStepsText] = useState(
+    DEFAULT_REVIEW_SETTINGS.learningSteps.join(', '),
+  );
+  const [relearningStepsText, setRelearningStepsText] = useState(
+    DEFAULT_REVIEW_SETTINGS.relearningSteps.join(', '),
+  );
   const [isSaving, setSaving] = useState(false);
 
   useEffect(() => {
-    void repository.get().then(setSettings);
+    void repository.get().then((loaded) => {
+      setSettings(loaded);
+      setLearningStepsText(loaded.learningSteps.join(', '));
+      setRelearningStepsText(loaded.relearningSteps.join(', '));
+    });
   }, [repository]);
 
   const save = async () => {
     setSaving(true);
     try {
-      await repository.save(settings);
+      await repository.save({
+        ...settings,
+        learningSteps: parseSteps(learningStepsText),
+        relearningSteps: parseSteps(relearningStepsText),
+      });
       Alert.alert('Réglages enregistrés', 'Les limites seront appliquées à la prochaine session.');
     } catch (error) {
       Alert.alert('Réglages invalides', error instanceof Error ? error.message : 'Erreur inconnue');
@@ -58,20 +72,32 @@ export default function SettingsScreen() {
           value={settings.reviewsPerDay}
           onChange={(value) => setSettings({ ...settings, reviewsPerDay: value })}
         />
-        <Text style={styles.sectionTitle}>Étapes d’apprentissage</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Étapes d’apprentissage</Text>
+          <InfoButton
+            title="Étapes d’apprentissage"
+            message="Après la première réponse, une nouvelle carte revient selon ces délais. Par exemple, 1m puis 10m signifie qu’elle revient après 1 minute, puis après 10 minutes."
+          />
+        </View>
         <Text style={styles.help}>Séparées par des virgules, par exemple 1m, 10m.</Text>
         <TextInput
           style={styles.input}
-          value={settings.learningSteps.join(', ')}
-          onChangeText={(value) => setSettings({ ...settings, learningSteps: parseSteps(value) })}
+          value={learningStepsText}
+          onChangeText={setLearningStepsText}
           autoCapitalize="none"
           accessibilityLabel="Étapes d’apprentissage"
         />
-        <Text style={styles.sectionTitle}>Étapes de réapprentissage</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Étapes de réapprentissage</Text>
+          <InfoButton
+            title="Étapes de réapprentissage"
+            message="Après l’oubli d’une carte déjà connue, ces délais déterminent quand elle revient. Par défaut, elle revient après 10 minutes avant de reprendre sa programmation."
+          />
+        </View>
         <TextInput
           style={styles.input}
-          value={settings.relearningSteps.join(', ')}
-          onChangeText={(value) => setSettings({ ...settings, relearningSteps: parseSteps(value) })}
+          value={relearningStepsText}
+          onChangeText={setRelearningStepsText}
           autoCapitalize="none"
           accessibilityLabel="Étapes de réapprentissage"
         />
@@ -84,10 +110,27 @@ export default function SettingsScreen() {
 }
 
 function parseSteps(value: string): ReviewStep[] {
-  return value
+  const steps = value
     .split(',')
     .map((step) => step.trim())
-    .filter((step): step is ReviewStep => /^([1-9]\d*)(m|h|d)$/.test(step));
+    .filter(Boolean);
+  if (steps.some((step) => !/^([1-9]\d*)(m|h|d)$/.test(step))) {
+    throw new Error('Les étapes doivent être au format 1m, 1h ou 1d.');
+  }
+  return steps as ReviewStep[];
+}
+
+function InfoButton({ title, message }: { title: string; message: string }) {
+  return (
+    <Pressable
+      onPress={() => Alert.alert(title, message)}
+      accessibilityLabel={`Informations sur ${title}`}
+      accessibilityRole="button"
+      hitSlop={8}
+    >
+      <Text style={styles.infoIcon}>ⓘ</Text>
+    </Pressable>
+  );
 }
 
 function SettingField({
@@ -132,7 +175,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     padding: 13,
   },
+  sectionHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   sectionTitle: { color: '#14213D', fontSize: 17, fontWeight: '800', marginTop: 12 },
+  infoIcon: { color: '#667085', fontSize: 19 },
   help: { color: '#667085', fontSize: 13, marginBottom: 8, marginTop: 5 },
   saveButton: {
     alignItems: 'center',
