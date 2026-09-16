@@ -1,10 +1,16 @@
 import {
+  applyDailyLimits,
   isScheduledToday,
   isStudyCardAvailable,
   orderStudyQueue,
   selectNextStudyCard,
 } from '../../src/application/studyQueue';
 import { CARD_STATES, type Card } from '../../src/domain/cards';
+import {
+  DEFAULT_REVIEW_SETTINGS,
+  getAvailableNewCardCount,
+  getAvailableReviewCardCount,
+} from '../../src/domain/reviewSettings';
 
 function card(id: string, state: number, dueAt: string | null): Card {
   return {
@@ -69,5 +75,42 @@ describe('studyQueue', () => {
 
     expect(selection.card?.id).toBe('available');
     expect(selection.isEarly).toBe(false);
+  });
+
+  it('applies global daily limits while preserving queue order', () => {
+    const cards = [
+      card('review-1', CARD_STATES.review, '2026-09-16T07:00:00.000Z'),
+      card('review-2', CARD_STATES.review, '2026-09-16T07:01:00.000Z'),
+      card('new-1', CARD_STATES.new, null),
+      card('new-2', CARD_STATES.new, null),
+    ];
+
+    expect(
+      applyDailyLimits(
+        cards,
+        { ...DEFAULT_REVIEW_SETTINGS, newCardsPerDay: 1, reviewsPerDay: 1 },
+        { newCards: 0, reviews: 0 },
+      ).map((item) => item.id),
+    ).toEqual(['review-1', 'new-1']);
+  });
+
+  it('does not offer cards after a global daily limit was consumed', () => {
+    expect(
+      applyDailyLimits(
+        [card('new', CARD_STATES.new, null), card('review', CARD_STATES.review, now.toISOString())],
+        DEFAULT_REVIEW_SETTINGS,
+        { newCards: 20, reviews: 200 },
+      ),
+    ).toEqual([]);
+  });
+
+  it('shows only the new cards still available within the daily limit', () => {
+    expect(getAvailableNewCardCount(30, 5, 5)).toBe(0);
+    expect(getAvailableNewCardCount(10, 5, 3)).toBe(2);
+  });
+
+  it("uses the same remaining-quota rule for today's review cards", () => {
+    expect(getAvailableReviewCardCount(4, DEFAULT_REVIEW_SETTINGS.reviewsPerDay, 200)).toBe(0);
+    expect(getAvailableReviewCardCount(4, DEFAULT_REVIEW_SETTINGS.reviewsPerDay, 198)).toBe(2);
   });
 });

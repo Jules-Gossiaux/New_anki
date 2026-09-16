@@ -1,5 +1,10 @@
 import { randomUUID } from 'expo-crypto';
 import type { Card, CreateCardInput } from '../../domain/cards';
+import {
+  DEFAULT_REVIEW_SETTINGS,
+  getAvailableNewCardCount,
+  getAvailableReviewCardCount,
+} from '../../domain/reviewSettings';
 import type { DatabaseClient } from '../database/client';
 
 type CardRow = {
@@ -30,6 +35,8 @@ export type StudyCounts = {
   today: number;
   future: number;
 };
+
+export type DailyStudyProgress = { newCards: number; reviews: number };
 
 function toCard(row: CardRow): Card {
   return {
@@ -218,13 +225,53 @@ export class CardRepository {
       now.toISOString(),
       today,
     );
+    const dailyNewLimit = await this.db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      'review.new_cards_per_day',
+    );
+    const configuredLimit = Number(dailyNewLimit?.value);
+    const dailyReviewLimit = await this.db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      'review.reviews_per_day',
+    );
+    const configuredReviewLimit = Number(dailyReviewLimit?.value);
+    const progress = await this.getDailyStudyProgress(now);
     const counts = {
       total: row?.total ?? 0,
-      new: row?.new ?? 0,
-      today: row?.today ?? 0,
+      new: getAvailableNewCardCount(
+        row?.new ?? 0,
+        Number.isFinite(configuredLimit) ? configuredLimit : DEFAULT_REVIEW_SETTINGS.newCardsPerDay,
+        progress.newCards,
+      ),
+      today: getAvailableReviewCardCount(
+        row?.today ?? 0,
+        Number.isFinite(configuredReviewLimit)
+          ? configuredReviewLimit
+          : DEFAULT_REVIEW_SETTINGS.reviewsPerDay,
+        progress.reviews,
+      ),
       future: row?.future ?? 0,
     };
     return counts;
+  }
+
+  public async getDailyStudyProgress(now: Date): Promise<DailyStudyProgress> {
+    const start = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    ).toISOString();
+    const end = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+    ).toISOString();
+    const row = await this.db.getFirstAsync<DailyStudyProgress>(
+      `SELECT
+         COUNT(DISTINCT CASE WHEN state_before = 0 THEN card_id END) AS newCards,
+         COUNT(DISTINCT CASE WHEN state_before <> 0 THEN card_id END) AS reviews
+       FROM review_logs
+       WHERE reviewed_at >= ? AND reviewed_at < ?`,
+      start,
+      end,
+    );
+    return { newCards: row?.newCards ?? 0, reviews: row?.reviews ?? 0 };
   }
 
   public async applyScheduling(
