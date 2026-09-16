@@ -36,6 +36,7 @@ export default function DeckDetailScreen() {
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [deckName, setDeckName] = useState('Deck');
   const [cards, setCards] = useState<Card[]>([]);
+  const [cardsRefreshToken, setCardsRefreshToken] = useState(0);
   const [studyCounts, setStudyCounts] = useState<StudyCounts>({
     total: 0,
     new: 0,
@@ -60,6 +61,7 @@ export default function DeckDetailScreen() {
     }
     setDeckName(deck.name);
     setCards(await cardRepository.listByDeck(deckId));
+    setCardsRefreshToken((value) => value + 1);
     setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
   }, [cardRepository, db, deckId, router]);
 
@@ -207,6 +209,7 @@ export default function DeckDetailScreen() {
                   <VocabularyCard
                     key={card.id}
                     card={card}
+                    refreshToken={cardsRefreshToken}
                     onEdit={() => openEditModal(card)}
                     onDelete={() => deleteCard(card)}
                   />
@@ -220,94 +223,99 @@ export default function DeckDetailScreen() {
       <Modal visible={isModalVisible} transparent animationType="slide" onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalEyebrow}>
-                  {editingCard ? 'MODIFIER LA CARTE' : 'NOUVELLE CARTE'}
-                </Text>
-                <Text style={styles.modalTitle}>
-                  {editingCard ? 'Modifier le vocabulaire' : 'Ajouter du vocabulaire'}
-                </Text>
-              </View>
-              <Pressable onPress={closeModal} accessibilityLabel="Fermer">
-                <Text style={styles.closeText}>×</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.fieldLabel}>Mot ou expression</Text>
-            <TextInput
-              autoFocus
-              placeholder="Ex. perseverance"
-              placeholderTextColor="#98A2B3"
-              value={front}
-              onChangeText={setFront}
-              style={styles.input}
-              accessibilityLabel="Question de la carte"
-            />
-            <Text style={styles.fieldLabel}>Traduction</Text>
-            <TextInput
-              placeholder="Ex. perseverance"
-              placeholderTextColor="#98A2B3"
-              value={back}
-              onChangeText={setBack}
-              style={styles.input}
-              accessibilityLabel="Reponse de la carte"
-            />
-            <Text style={styles.fieldLabel}>Exemple (facultatif)</Text>
-            <TextInput
-              placeholder="Ex. perseverance takes practice"
-              placeholderTextColor="#98A2B3"
-              value={example}
-              onChangeText={setExample}
-              style={styles.input}
-              accessibilityLabel="Exemple de la carte"
-            />
-            <Text style={styles.fieldLabel}>Informations supplémentaires (facultatif)</Text>
-            <TextInput
-              placeholder="Notes personnelles"
-              placeholderTextColor="#98A2B3"
-              value={extra}
-              onChangeText={setExtra}
-              style={[styles.input, styles.multilineInput]}
-              multiline
-              accessibilityLabel="Informations supplémentaires de la carte"
-            />
-            <Text style={styles.fieldLabel}>Tags</Text>
-            <View style={styles.tagInputRow}>
-              <TextInput
-                placeholder="Ex. travail"
-                placeholderTextColor="#98A2B3"
-                value={tagDraft}
-                onChangeText={setTagDraft}
-                onSubmitEditing={addTag}
-                style={[styles.input, styles.tagInput]}
-                accessibilityLabel="Nouveau tag"
-              />
-              <Pressable style={styles.addTagButton} onPress={addTag} accessibilityRole="button">
-                <Text style={styles.addTagButtonText}>Ajouter</Text>
-              </Pressable>
-            </View>
-            <View style={styles.tagList}>
-              {tags.map((tag) => (
-                <Pressable
-                  key={tag}
-                  style={styles.tagChip}
-                  onPress={() => setTags(tags.filter((current) => current !== tag))}
-                  accessibilityLabel={`Retirer le tag ${tag}`}
-                >
-                  <Text style={styles.tagText}>#{tag} ×</Text>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalEyebrow}>
+                    {editingCard ? 'MODIFIER LA CARTE' : 'NOUVELLE CARTE'}
+                  </Text>
+                  <Text style={styles.modalTitle}>
+                    {editingCard ? 'Modifier le vocabulaire' : 'Ajouter du vocabulaire'}
+                  </Text>
+                </View>
+                <Pressable onPress={closeModal} accessibilityLabel="Fermer">
+                  <Text style={styles.closeText}>×</Text>
                 </Pressable>
-              ))}
+              </View>
+              <Text style={styles.fieldLabel}>Mot ou expression</Text>
+              <TextInput
+                autoFocus
+                placeholder="Ex. perseverance"
+                placeholderTextColor="#98A2B3"
+                value={front}
+                onChangeText={setFront}
+                style={styles.input}
+                accessibilityLabel="Question de la carte"
+              />
+              <Text style={styles.fieldLabel}>Traduction</Text>
+              <TextInput
+                placeholder="Ex. perseverance"
+                placeholderTextColor="#98A2B3"
+                value={back}
+                onChangeText={setBack}
+                style={styles.input}
+                accessibilityLabel="Reponse de la carte"
+              />
+              <Text style={styles.fieldLabel}>Exemple (facultatif)</Text>
+              <TextInput
+                placeholder="Ex. perseverance takes practice"
+                placeholderTextColor="#98A2B3"
+                value={example}
+                onChangeText={setExample}
+                style={styles.input}
+                accessibilityLabel="Exemple de la carte"
+              />
+              <Text style={styles.fieldLabel}>Informations supplémentaires (facultatif)</Text>
+              <TextInput
+                placeholder="Notes personnelles"
+                placeholderTextColor="#98A2B3"
+                value={extra}
+                onChangeText={setExtra}
+                style={[styles.input, styles.multilineInput]}
+                multiline
+                accessibilityLabel="Informations supplémentaires de la carte"
+              />
+              <Text style={styles.fieldLabel}>Tags</Text>
+              <View style={styles.tagInputRow}>
+                <TextInput
+                  placeholder="Ex. travail"
+                  placeholderTextColor="#98A2B3"
+                  value={tagDraft}
+                  onChangeText={setTagDraft}
+                  onSubmitEditing={addTag}
+                  style={[styles.input, styles.tagInput]}
+                  accessibilityLabel="Nouveau tag"
+                />
+                <Pressable style={styles.addTagButton} onPress={addTag} accessibilityRole="button">
+                  <Text style={styles.addTagButtonText}>Ajouter</Text>
+                </Pressable>
+              </View>
+              <View style={styles.tagList}>
+                {tags.map((tag) => (
+                  <Pressable
+                    key={tag}
+                    style={styles.tagChip}
+                    onPress={() => setTags(tags.filter((current) => current !== tag))}
+                    accessibilityLabel={`Retirer le tag ${tag}`}
+                  >
+                    <Text style={styles.tagText}>#{tag} ×</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable style={styles.saveButton} onPress={() => void createCard()}>
+                <Text style={styles.saveButtonText}>
+                  {editingCard ? 'Enregistrer les modifications' : 'Ajouter la carte'}
+                </Text>
+              </Pressable>
             </View>
-            <Pressable style={styles.saveButton} onPress={() => void createCard()}>
-              <Text style={styles.saveButtonText}>
-                {editingCard ? 'Enregistrer les modifications' : 'Ajouter la carte'}
-              </Text>
-            </Pressable>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -316,10 +324,12 @@ export default function DeckDetailScreen() {
 
 function VocabularyCard({
   card,
+  refreshToken,
   onEdit,
   onDelete,
 }: {
   card: Card;
+  refreshToken: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -331,6 +341,8 @@ function VocabularyCard({
 
   useEffect(() => {
     let active = true;
+    setNote(null);
+    setTags([]);
     void Promise.all([
       new NoteRepository(db).getById(card.noteId),
       new TagRepository(db).listByNote(card.noteId),
@@ -343,7 +355,7 @@ function VocabularyCard({
     return () => {
       active = false;
     };
-  }, [card.noteId, db]);
+  }, [card.noteId, db, refreshToken]);
 
   return (
     <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
@@ -531,12 +543,14 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: { color: '#1674D1', fontSize: 14, fontWeight: '800' },
   modalBackdrop: { backgroundColor: 'rgba(16, 24, 40, 0.42)', flex: 1, justifyContent: 'flex-end' },
+  modalScrollContent: { justifyContent: 'flex-end' },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
     paddingBottom: 32,
+    maxHeight: '92%',
   },
   modalHandle: {
     alignSelf: 'center',
