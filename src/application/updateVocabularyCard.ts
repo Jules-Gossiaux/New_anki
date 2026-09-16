@@ -70,10 +70,5 @@ export class UpdateVocabularyCard {
     if (wantsReverse && !hadReverse) {
       await cardRepository.create({ noteId, deckId, templateKey: CARD_TEMPLATES.reverse });
     }
-
-    if (hadForward !== wantsForward || hadReverse !== wantsReverse) {
-      const retainedCards = await cardRepository.listByNote(noteId);
-      for (const card of retainedCards) await cardRepository.resetScheduling(card.id);
-    }
   }
 }
