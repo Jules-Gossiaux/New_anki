@@ -15,10 +15,13 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(latestSchemaVersion).toBe(1);
+    expect(latestSchemaVersion).toBe(2);
     expect(executed).toContain('BEGIN IMMEDIATE;');
     expect(executed).toContain('COMMIT;');
     expect(executed.at(-1)).toBe('COMMIT;');
+    expect(
+      executed.some((source) => source.includes('ALTER TABLE cards ADD COLUMN last_review_at')),
+    ).toBe(true);
   });
 
   it('does not rerun migrations that are already applied', async () => {

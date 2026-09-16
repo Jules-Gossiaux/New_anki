@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,7 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import type { Card } from '../../domain/cards';
-import { CardRepository } from '../../infrastructure/repositories/cardRepository';
+import { getCardDisplayStatus, type CardDisplayStatus } from '../../domain/cardStatus';
+import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 
 export default function DeckDetailScreen() {
@@ -26,6 +27,12 @@ export default function DeckDetailScreen() {
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [deckName, setDeckName] = useState('Deck');
   const [cards, setCards] = useState<Card[]>([]);
+  const [studyCounts, setStudyCounts] = useState<StudyCounts>({
+    total: 0,
+    new: 0,
+    today: 0,
+    future: 0,
+  });
   const [isModalVisible, setModalVisible] = useState(false);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
@@ -39,11 +46,14 @@ export default function DeckDetailScreen() {
     }
     setDeckName(deck.name);
     setCards(await cardRepository.listByDeck(deckId));
+    setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
   }, [cardRepository, db, deckId, router]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const closeModal = () => {
     setModalVisible(false);
@@ -114,9 +124,14 @@ export default function DeckDetailScreen() {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryTitle}>Vos cartes</Text>
-          <Text style={styles.summaryCount}>
-            {cards.length} {cards.length === 1 ? 'carte' : 'cartes'}
-          </Text>
+          <View style={styles.summaryCounts}>
+            <Text style={styles.summaryCount}>{cards.length} total</Text>
+            <Text style={styles.dueCount}>
+              <Text style={styles.newCount}>{studyCounts.new}</Text>
+              <Text style={styles.todayCount}> {studyCounts.today}</Text>
+              <Text style={styles.futureCount}> {studyCounts.future}</Text>
+            </Text>
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -192,18 +207,22 @@ export default function DeckDetailScreen() {
 }
 
 function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }) {
+  const status = getCardDisplayStatus(card, new Date());
+
   return (
-    <View style={styles.vocabularyCard}>
+    <View style={[styles.vocabularyCard, stylesByStatus[status].card]}>
       <View style={styles.cardTopRow}>
-        <View style={styles.cardBadge}>
-          <Text style={styles.cardBadgeText}>NOUVELLE</Text>
+        <View style={[styles.cardBadge, stylesByStatus[status].badge]}>
+          <Text style={[styles.cardBadgeText, stylesByStatus[status].badgeText]}>
+            {statusLabels[status]}
+          </Text>
         </View>
         <Pressable onPress={onDelete} accessibilityLabel={`Supprimer ${card.front}`} hitSlop={8}>
           <Text style={styles.deleteIcon}>•••</Text>
         </Pressable>
       </View>
-      <Text style={styles.front}>{card.front}</Text>
-      <View style={styles.divider} />
+      <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <View style={[styles.divider, stylesByStatus[status].divider]} />
       <Text style={styles.back}>{card.back}</Text>
       <Pressable style={styles.cardDeleteAction} onPress={onDelete} accessibilityRole="button">
         <Text style={styles.cardDeleteText}>Supprimer la carte</Text>
@@ -211,6 +230,39 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
     </View>
   );
 }
+
+const statusLabels: Record<CardDisplayStatus, string> = {
+  new: 'NOUVELLE',
+  today: 'À RÉVISER',
+  future: 'À VENIR',
+};
+
+const stylesByStatus: Record<
+  CardDisplayStatus,
+  { card: object; badge: object; badgeText: object; front: object; divider: object }
+> = {
+  new: {
+    card: { backgroundColor: '#F8FBFF', borderColor: '#CFE5FF' },
+    badge: { backgroundColor: '#EAF4FF' },
+    badgeText: { color: '#1674D1' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#DDEEFF' },
+  },
+  today: {
+    card: { backgroundColor: '#FFF8F7', borderColor: '#F5C5C0' },
+    badge: { backgroundColor: '#FEECEC' },
+    badgeText: { color: '#B42318' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#F9D9D5' },
+  },
+  future: {
+    card: { backgroundColor: '#F5FCF8', borderColor: '#B7E4C7' },
+    badge: { backgroundColor: '#E7F7ED' },
+    badgeText: { color: '#087443' },
+    front: { color: '#14213D' },
+    divider: { backgroundColor: '#D4F0DD' },
+  },
+};
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: '#F7F9FC', flex: 1 },
@@ -246,6 +298,11 @@ const styles = StyleSheet.create({
   },
   summaryTitle: { color: '#14213D', fontSize: 19, fontWeight: '800' },
   summaryCount: { color: '#667085', fontSize: 13, fontWeight: '600' },
+  summaryCounts: { alignItems: 'flex-end', gap: 3 },
+  dueCount: { color: '#D92D20', fontSize: 13, fontWeight: '800' },
+  newCount: { color: '#1687F8' },
+  todayCount: { color: '#D92D20' },
+  futureCount: { color: '#12B76A' },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 28 },
   cardList: { gap: 14, paddingBottom: 28 },

@@ -13,6 +13,12 @@ export type Card = {
   state: number;
   dueAt: string | null;
   dueDay: number | null;
+  stability: number | null;
+  difficulty: number | null;
+  lastReviewAt: string | null;
+  scheduledDays: number;
+  elapsedDays: number;
+  learningSteps: number;
   reps: number;
   lapses: number;
   front: string;
@@ -20,6 +26,8 @@ export type Card = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ReviewRating = 'again' | 'hard' | 'good' | 'easy';
 
 export type CreateCardInput = {
   noteId: string;

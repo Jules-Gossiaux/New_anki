@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Deck } from '../domain/decks';
+import { CardRepository, type StudyCounts } from '../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../infrastructure/repositories/deckRepository';
 
 type Draft = { name: string; parentId: string | null };
@@ -36,18 +37,30 @@ export default function DecksScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const repository = useMemo(() => new DeckRepository(db), [db]);
+  const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [studyCounts, setStudyCounts] = useState<Record<string, StudyCounts>>({});
   const [isModalVisible, setModalVisible] = useState(false);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: '', parentId: null });
 
   const loadDecks = useCallback(async () => {
-    setDecks(await repository.listAll());
-  }, [repository]);
+    const nextDecks = await repository.listAll();
+    setDecks(nextDecks);
+    const counts = await Promise.all(
+      nextDecks.map(
+        async (deck) =>
+          [deck.id, await cardRepository.getStudyCounts(deck.id, new Date())] as const,
+      ),
+    );
+    setStudyCounts(Object.fromEntries(counts));
+  }, [cardRepository, repository]);
 
-  useEffect(() => {
-    void loadDecks();
-  }, [loadDecks]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadDecks();
+    }, [loadDecks]),
+  );
 
   const visibleDecks = useMemo(() => flattenDecks(decks), [decks]);
 
@@ -133,7 +146,11 @@ export default function DecksScreen() {
           renderItem={({ item }) => (
             <DeckCard
               deck={item}
+              counts={studyCounts[item.id]}
               onOpen={() =>
+                router.push({ pathname: '/study/[deckId]', params: { deckId: item.id } })
+              }
+              onManageCards={() =>
                 router.push({ pathname: '/deck/[deckId]', params: { deckId: item.id } })
               }
               onEdit={() => openEdit(item)}
@@ -228,46 +245,73 @@ export default function DecksScreen() {
 
 function DeckCard({
   deck,
+  counts,
   onOpen,
+  onManageCards,
   onEdit,
   onAddChild,
 }: {
   deck: VisibleDeck;
+  counts?: StudyCounts;
   onOpen: () => void;
+  onManageCards: () => void;
   onEdit: () => void;
   onAddChild: () => void;
 }) {
   return (
-    <View style={[styles.deckCard, { marginLeft: deck.depth * 12 }]}>
+    <Pressable
+      style={[styles.deckCard, { marginLeft: deck.depth * 12 }]}
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`Étudier ${deck.name}`}
+    >
       <View style={styles.deckCardHeader}>
         <Pressable style={styles.deckMainAction} onPress={onOpen} accessibilityRole="button">
           <Text style={styles.deckName} numberOfLines={2}>
             {deck.name}
           </Text>
           <Text style={styles.deckMeta}>{deck.depth === 0 ? 'Deck principal' : 'Sous-deck'}</Text>
+          <Text style={styles.deckCounts}>
+            <Text style={styles.newCount}>{counts?.new ?? 0}</Text>
+            <Text style={styles.todayCount}> {counts?.today ?? 0}</Text>
+            <Text style={styles.futureCount}> {counts?.future ?? 0}</Text>
+          </Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-          onPress={onEdit}
+          onPress={(event) => {
+            event.stopPropagation();
+            onEdit();
+          }}
           accessibilityLabel={`Modifier ${deck.name}`}
         >
           <Text style={styles.pencilIcon}>✎</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.addCardsAction} onPress={onOpen} accessibilityRole="button">
+      <Pressable
+        style={styles.addCardsAction}
+        onPress={(event) => {
+          event.stopPropagation();
+          onManageCards();
+        }}
+        accessibilityRole="button"
+      >
         <Text style={styles.addCardsText}>Ajouter des cartes</Text>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
       {deck.depth === 0 && (
         <Pressable
           style={styles.subdeckAction}
-          onPress={onAddChild}
+          onPress={(event) => {
+            event.stopPropagation();
+            onAddChild();
+          }}
           accessibilityLabel={`Ajouter un sous-deck a ${deck.name}`}
         >
           <Text style={styles.subdeckText}>+ Sous-deck</Text>
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -340,6 +384,10 @@ const styles = StyleSheet.create({
   deckMainAction: { flex: 1, paddingRight: 14 },
   deckName: { color: '#14213D', fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
   deckMeta: { color: '#667085', fontSize: 13, marginTop: 5 },
+  deckCounts: { color: '#12B76A', fontSize: 12, fontWeight: '700', marginTop: 8 },
+  newCount: { color: '#1687F8' },
+  todayCount: { color: '#D92D20' },
+  futureCount: { color: '#12B76A' },
   iconButton: {
     alignItems: 'center',
     backgroundColor: '#F1F7FF',
