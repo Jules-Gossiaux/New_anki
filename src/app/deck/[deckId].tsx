@@ -18,6 +18,7 @@ import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import { UpdateVocabularyCard } from '../../application/updateVocabularyCard';
 import { getCardSides, type Card } from '../../domain/cards';
 import type { Note } from '../../domain/notes';
+import { normalizeTagName, type Tag } from '../../domain/tags';
 import {
   formatCardSchedule,
   getCardDisplayStatus,
@@ -26,6 +27,7 @@ import {
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
+import { TagRepository } from '../../infrastructure/repositories/tagRepository';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -46,6 +48,8 @@ export default function DeckDetailScreen() {
   const [back, setBack] = useState('');
   const [example, setExample] = useState('');
   const [extra, setExtra] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState('');
 
   const load = useCallback(async () => {
     if (!deckId) return;
@@ -72,17 +76,30 @@ export default function DeckDetailScreen() {
     setBack('');
     setExample('');
     setExtra('');
+    setTags([]);
+    setTagDraft('');
   };
 
   const openEditModal = async (card: Card) => {
-    const note = await new NoteRepository(db).getById(card.noteId);
+    const [note, cardTags] = await Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+    ]);
     if (!note) return;
     setEditingCard(card);
     setFront(card.front);
     setBack(card.back);
     setExample(note.example ?? '');
     setExtra(note.extra ?? '');
+    setTags(cardTags.map((tag) => tag.name));
     setModalVisible(true);
+  };
+
+  const addTag = () => {
+    const normalized = normalizeTagName(tagDraft);
+    if (!normalized || tags.includes(normalized)) return;
+    setTags([...tags, normalized]);
+    setTagDraft('');
   };
 
   const createCard = async () => {
@@ -94,9 +111,10 @@ export default function DeckDetailScreen() {
           back,
           example,
           extra,
+          tags,
         });
       } else {
-        await new CreateVocabularyCard(db).execute(deckId, { front, back, example, extra });
+        await new CreateVocabularyCard(db).execute(deckId, { front, back, example, extra, tags });
       }
       closeModal();
       await load();
@@ -257,6 +275,33 @@ export default function DeckDetailScreen() {
               multiline
               accessibilityLabel="Informations supplémentaires de la carte"
             />
+            <Text style={styles.fieldLabel}>Tags</Text>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                placeholder="Ex. travail"
+                placeholderTextColor="#98A2B3"
+                value={tagDraft}
+                onChangeText={setTagDraft}
+                onSubmitEditing={addTag}
+                style={[styles.input, styles.tagInput]}
+                accessibilityLabel="Nouveau tag"
+              />
+              <Pressable style={styles.addTagButton} onPress={addTag} accessibilityRole="button">
+                <Text style={styles.addTagButtonText}>Ajouter</Text>
+              </Pressable>
+            </View>
+            <View style={styles.tagList}>
+              {tags.map((tag) => (
+                <Pressable
+                  key={tag}
+                  style={styles.tagChip}
+                  onPress={() => setTags(tags.filter((current) => current !== tag))}
+                  accessibilityLabel={`Retirer le tag ${tag}`}
+                >
+                  <Text style={styles.tagText}>#{tag} ×</Text>
+                </Pressable>
+              ))}
+            </View>
             <Pressable style={styles.saveButton} onPress={() => void createCard()}>
               <Text style={styles.saveButtonText}>
                 {editingCard ? 'Enregistrer les modifications' : 'Ajouter la carte'}
@@ -280,13 +325,20 @@ function VocabularyCard({
 }) {
   const db = useSQLiteContext();
   const [note, setNote] = useState<Note | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
   const status = getCardDisplayStatus(card, new Date());
   const cardSides = getCardSides(card);
 
   useEffect(() => {
     let active = true;
-    void new NoteRepository(db).getById(card.noteId).then((loaded) => {
-      if (active) setNote(loaded);
+    void Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+    ]).then(([loadedNote, loadedTags]) => {
+      if (active) {
+        setNote(loadedNote);
+        setTags(loadedTags);
+      }
     });
     return () => {
       active = false;
@@ -311,6 +363,15 @@ function VocabularyCard({
       <Text style={styles.back}>{cardSides.answer}</Text>
       {note?.example && <Text style={styles.cardExample}>{note.example}</Text>}
       {note?.extra && <Text style={styles.cardExtra}>{note.extra}</Text>}
+      {tags.length > 0 && (
+        <View style={styles.cardTags}>
+          {tags.map((tag) => (
+            <Text key={tag.id} style={styles.cardTag}>
+              #{tag.name}
+            </Text>
+          ))}
+        </View>
+      )}
       <Pressable style={styles.cardEditAction} onPress={onEdit} accessibilityRole="button">
         <Text style={styles.cardEditText}>Modifier la carte</Text>
       </Pressable>
@@ -428,11 +489,30 @@ const styles = StyleSheet.create({
   schedule: { color: '#667085', fontSize: 13, marginTop: 8 },
   cardExample: { color: '#344054', fontSize: 15, fontStyle: 'italic', marginTop: 12 },
   cardExtra: { color: '#667085', fontSize: 14, marginTop: 6 },
+  cardTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  cardTag: { color: '#667085', fontSize: 12 },
   cardDeleteAction: { alignSelf: 'flex-start', marginTop: 17 },
   cardEditAction: { alignSelf: 'flex-start', marginTop: 17 },
   cardEditText: { color: '#1674D1', fontSize: 13, fontWeight: '700' },
   cardDeleteText: { color: '#B42318', fontSize: 13, fontWeight: '700' },
   multilineInput: { minHeight: 72, textAlignVertical: 'top' },
+  tagInputRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  tagInput: { flex: 1 },
+  addTagButton: {
+    backgroundColor: '#EAF4FF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  addTagButtonText: { color: '#1674D1', fontSize: 13, fontWeight: '800' },
+  tagList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  tagChip: {
+    backgroundColor: '#F2F4F7',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  tagText: { color: '#344054', fontSize: 12, fontWeight: '700' },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

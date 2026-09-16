@@ -7,12 +7,14 @@ import { ReviewCard } from '../../application/reviewCard';
 import { applyDailyLimits, selectNextStudyCard } from '../../application/studyQueue';
 import { getCardSides, type Card, type ReviewRating } from '../../domain/cards';
 import type { Note } from '../../domain/notes';
+import type { Tag } from '../../domain/tags';
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
 import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
+import { TagRepository } from '../../infrastructure/repositories/tagRepository';
 import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
 
 const ratings: { label: string; value: ReviewRating; color: string }[] = [
@@ -46,6 +48,7 @@ export default function StudyScreen() {
   const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
   const [noteDetails, setNoteDetails] = useState<Note | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
@@ -91,12 +94,19 @@ export default function StudyScreen() {
     let active = true;
     if (!card) {
       setNoteDetails(null);
+      setTags([]);
       return () => {
         active = false;
       };
     }
-    void new NoteRepository(db).getById(card.noteId).then((note) => {
-      if (active) setNoteDetails(note);
+    void Promise.all([
+      new NoteRepository(db).getById(card.noteId),
+      new TagRepository(db).listByNote(card.noteId),
+    ]).then(([note, loadedTags]) => {
+      if (active) {
+        setNoteDetails(note);
+        setTags(loadedTags);
+      }
     });
     return () => {
       active = false;
@@ -179,6 +189,15 @@ export default function StudyScreen() {
                     <Text style={styles.example}>{noteDetails.example}</Text>
                   )}
                   {noteDetails?.extra && <Text style={styles.extra}>{noteDetails.extra}</Text>}
+                  {tags.length > 0 && (
+                    <View style={styles.studyTags}>
+                      {tags.map((tag) => (
+                        <Text key={tag.id} style={styles.studyTag}>
+                          #{tag.name}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                 </>
               ) : (
                 <Text style={styles.prompt}>Touchez l’écran pour révéler la réponse</Text>
@@ -237,6 +256,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   extra: { color: '#667085', fontSize: 15, marginTop: 12, textAlign: 'center' },
+  studyTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  studyTag: { color: '#667085', fontSize: 12 },
   prompt: { color: '#98A2B3', fontSize: 15, marginTop: 92, textAlign: 'center' },
   ratingGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   ratingButton: {

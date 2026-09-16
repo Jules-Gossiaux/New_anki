@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added note-level tag management in the card editor, including normalized creation, display and removal shared by both study directions.
 - Added independent forward and reverse study cards for every note, each with its own FSRS state and review history.
 - Displayed optional examples and extra information after answer reveal and in the card editor.
 - Added full editing for vocabulary cards' front, back, example and extra fields. Front/back changes reset only the current FSRS state while preserving review history.

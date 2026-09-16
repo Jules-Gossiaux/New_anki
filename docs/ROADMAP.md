@@ -4,9 +4,9 @@
 
 Documentation, Expo shell, TypeScript, navigation, quality scripts, agent workflow and platform feasibility investigation.
 
-## Phase A — Anki-compatible foundation (current; settings, editing and bidirectional study slices complete)
+## Phase A — Anki-compatible foundation (current; settings, editing, tags and bidirectional study slices complete)
 
-Schema/migrations, repositories, nested decks, notes/cards, validation, global revision settings, pinned FSRS integration, review history and the first study use case are implemented. The settings slice is complete: daily new-card and review limits are global, persist locally, reset by UTC day, and learning/relearning steps are configurable with validation and contextual help. The current editing slice is also complete for the existing fields: front, back, example and extra can be changed; history is retained and only a front/back change resets both direction cards' current FSRS state. New notes and migrated existing notes have independent forward and reverse cards. Tag UX and staged `.apkg` import remain open. `.apkg` export is deliberately deferred until after the import and core editing work.
+Schema/migrations, repositories, nested decks, notes/cards, validation, global revision settings, pinned FSRS integration, review history and the first study use case are implemented. The settings slice is complete: daily new-card and review limits are global, persist locally, reset by UTC day, and learning/relearning steps are configurable with validation and contextual help. The current editing slice is also complete for the existing fields: front, back, example and extra can be changed; history is retained and only a front/back change resets both direction cards' current FSRS state. New notes and migrated existing notes have independent forward and reverse cards. Tag assignment is complete in the editor: tags are note-level, normalized, shared by both directions and excluded from FSRS and counters. Staged `.apkg` import remains open. `.apkg` export is deliberately deferred until after the import and core editing work.
 
 ## Phase B — first product innovations
 
@@ -16,7 +16,7 @@ Accessible mobile study UX, restrained motion, progress and review friction redu
 
 Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks, bidirectional note/card creation, editing and deletion, pinned FSRS scheduling per direction, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, and consistent blue/new, red/today and green/future card categories.
 
-Still required before declaring Phase A complete: tags and template UX, staged `.apkg` import with fixtures and media handling, and broader Android regression validation. Editing preserves review history and resets both direction cards' current FSRS state only when the normalized front or back changes. `.apkg` export and iOS device validation are deliberately outside the current MVP acceptance criteria.
+Still required before declaring Phase A complete: staged `.apkg` import with fixtures and media handling, and broader Android regression validation. Editing preserves review history and resets both direction cards' current FSRS state only when the normalized front or back changes. `.apkg` export and iOS device validation are deliberately outside the current MVP acceptance criteria.
 
 ## Later versions
 

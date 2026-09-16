@@ -23,3 +23,7 @@ Phone unlock and cross-app usage behavior differs substantially by platform and 
 ## ADR-0006 - Scope of the first settings and card-model iteration (accepted)
 
 Revision settings are global application settings rather than per-deck settings for the first implementation. The initial card-model iteration will provide two fixed templates: front-to-back and back-to-front. Editing a note preserves its append-only review history; changing the normalized front or back resets only the card's current FSRS state while retaining all historical review logs. Changes to example and extra preserve the current FSRS state. `.apkg` export is explicitly deferred until after the import and core editing work.
+
+## ADR-0007 - Note-level tags (accepted)
+
+Tags belong to notes rather than individual direction cards, so both forward and reverse cards share the same organization metadata. Tags are created from the card editor, normalized by trimming and lowercasing, deduplicated, and removable from the note. Tag assignment does not affect FSRS scheduling, review history or deck counters. Global tag search and orphan cleanup are deferred.

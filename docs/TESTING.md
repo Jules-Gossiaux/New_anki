@@ -21,6 +21,6 @@ On 2026-09-15, the study and FSRS flow was validated by automated tests: all fou
 
 On 2026-09-16, card-editor status categories were covered by unit tests for new cards, cards scheduled later today and cards scheduled after today. The editor and deck list use the same UTC scheduling classification. Manual Android validation of returning from study to both screens is still required; the current fix reloads both screens on navigation focus.
 
-Phase A is not yet complete: tag UX and staged Anki import still require implementation and dedicated tests. Global revision settings are implemented and covered by settings-repository, validation, UI-input and daily-limit tests. Full editing of the current fields and independent forward/reverse card templates are covered by application and domain tests. Native iOS validation remains outside the MVP acceptance criteria.
+Phase A is not yet complete: staged Anki import still requires implementation and dedicated tests. Global revision settings are implemented and covered by settings-repository, validation, UI-input and daily-limit tests. Full editing of the current fields, independent forward/reverse card templates and normalized tag assignment are covered by application and domain/repository tests. Native iOS validation remains outside the MVP acceptance criteria.
 
 The editor's category and human-readable schedule display are covered by card-status tests; daily-limit exhaustion and remaining-new-card quota are covered by study-queue tests.
