@@ -31,6 +31,8 @@ export type StudyCounts = {
   future: number;
 };
 
+export type DailyStudyProgress = { newCards: number; reviews: number };
+
 function toCard(row: CardRow): Card {
   return {
     id: row.id,
@@ -225,6 +227,25 @@ export class CardRepository {
       future: row?.future ?? 0,
     };
     return counts;
+  }
+
+  public async getDailyStudyProgress(now: Date): Promise<DailyStudyProgress> {
+    const start = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    ).toISOString();
+    const end = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+    ).toISOString();
+    const row = await this.db.getFirstAsync<DailyStudyProgress>(
+      `SELECT
+         COUNT(DISTINCT CASE WHEN state_before = 0 THEN card_id END) AS newCards,
+         COUNT(DISTINCT CASE WHEN state_before <> 0 THEN card_id END) AS reviews
+       FROM review_logs
+       WHERE reviewed_at >= ? AND reviewed_at < ?`,
+      start,
+      end,
+    );
+    return { newCards: row?.newCards ?? 0, reviews: row?.reviews ?? 0 };
   }
 
   public async applyScheduling(

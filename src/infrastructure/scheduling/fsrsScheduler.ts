@@ -1,5 +1,6 @@
 import { fsrs, Rating as FsrsRating, State as FsrsState } from 'ts-fsrs';
 import type { Card, ReviewRating } from '../../domain/cards';
+import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { Scheduler, SchedulingDecision, SchedulingPreview } from '../../domain/scheduler';
 
 const ratings = {
@@ -18,7 +19,15 @@ function toUtcDay(date: Date): number {
 }
 
 export class FsrsScheduler implements Scheduler {
-  private readonly scheduler = fsrs({ enable_fuzz: false });
+  private readonly scheduler;
+
+  public constructor(settings: ReviewSettings = DEFAULT_REVIEW_SETTINGS) {
+    this.scheduler = fsrs({
+      enable_fuzz: false,
+      learning_steps: settings.learningSteps,
+      relearning_steps: settings.relearningSteps,
+    });
+  }
 
   public preview(card: Card, now: Date): SchedulingPreview {
     const result = this.scheduler.repeat(this.toFsrsCard(card, now), now);

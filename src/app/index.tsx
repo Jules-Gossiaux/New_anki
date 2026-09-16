@@ -171,7 +171,7 @@ export default function DecksScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}
-          onPress={() => Alert.alert('Reglages', 'Les reglages de revision arriveront avec FSRS.')}
+          onPress={() => router.push('./settings')}
           accessibilityLabel="Ouvrir les reglages"
           accessibilityRole="button"
         >

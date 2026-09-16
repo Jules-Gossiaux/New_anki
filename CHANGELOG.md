@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added global daily review limits and configurable FSRS learning/relearning steps with persistent settings.
 - Aligned card-editor colors and statuses with the scheduling categories: blue for new cards, red for cards scheduled today, and green for cards scheduled after today.
 - Added the first study flow with new/due card selection across nested decks, answer reveal, Again/Hard/Good/Easy ratings and atomic FSRS review persistence.
 - Added the pinned `ts-fsrs` 5.4.2 scheduler adapter, persisted scheduler state migration and review-log repository.

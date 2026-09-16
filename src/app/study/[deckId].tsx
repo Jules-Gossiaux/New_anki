@@ -4,15 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../../application/reviewCard';
-import {
-  isScheduledToday,
-  orderStudyQueue,
-  selectNextStudyCard,
-} from '../../application/studyQueue';
+import { applyDailyLimits, selectNextStudyCard } from '../../application/studyQueue';
 import type { Card, ReviewRating } from '../../domain/cards';
+import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from '../../domain/reviewSettings';
 import type { SchedulingPreview } from '../../domain/scheduler';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
 import { FsrsScheduler } from '../../infrastructure/scheduling/fsrsScheduler';
 
 const ratings: { label: string; value: ReviewRating; color: string }[] = [
@@ -35,7 +33,9 @@ export default function StudyScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
-  const scheduler = useMemo(() => new FsrsScheduler(), []);
+  const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
+  const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
+  const scheduler = useMemo(() => new FsrsScheduler(settings), [settings]);
   const [deckName, setDeckName] = useState('Étude');
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
@@ -56,10 +56,16 @@ export default function StudyScreen() {
       return;
     }
     setDeckName(deck.name);
-    const dueCards = await cardRepository.listStudyQueue(deckId, new Date());
-    setCards(dueCards);
+    const currentSettings = await settingsRepository.get();
+    const currentNow = new Date();
+    const [queue, progress] = await Promise.all([
+      cardRepository.listStudyQueue(deckId, currentNow),
+      cardRepository.getDailyStudyProgress(currentNow),
+    ]);
+    setSettings(currentSettings);
+    setCards(applyDailyLimits(queue, currentSettings, progress));
     setRevealed(false);
-  }, [cardRepository, db, deckId, router, scheduler]);
+  }, [cardRepository, db, deckId, router, settingsRepository]);
 
   useEffect(() => {
     void load();
@@ -78,14 +84,8 @@ export default function StudyScreen() {
     if (!card || isSubmitting) return;
     setSubmitting(true);
     try {
-      const result = await new ReviewCard(db, scheduler).execute(card.id, rating);
-      const updatedCard: Card = { ...card, ...result.decision };
-      setCards((current) => {
-        const remaining = current.filter((candidate) => candidate.id !== card.id);
-        if (isScheduledToday(updatedCard, new Date())) remaining.push(updatedCard);
-        return orderStudyQueue(remaining);
-      });
-      setRevealed(false);
+      await new ReviewCard(db, scheduler).execute(card.id, rating);
+      await load();
     } catch (error) {
       Alert.alert(
         'Impossible d’enregistrer la révision',
