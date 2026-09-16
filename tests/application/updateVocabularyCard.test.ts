@@ -30,7 +30,7 @@ function createDb(): DatabaseClient {
   return {
     execAsync: jest.fn(),
     runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
-    getAllAsync: jest.fn(),
+    getAllAsync: jest.fn(async () => []),
     getFirstAsync: jest.fn(
       async <T>(source: string, ...params: SQLiteBindValue[]): Promise<T | null> => {
         void source;

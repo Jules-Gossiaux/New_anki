@@ -2,6 +2,7 @@ import { hasDeepPrimaryContentChange, type UpdateNoteInput } from '../domain/not
 import type { DatabaseClient } from '../infrastructure/database/client';
 import { CardRepository } from '../infrastructure/repositories/cardRepository';
 import { NoteRepository } from '../infrastructure/repositories/noteRepository';
+import { TagRepository } from '../infrastructure/repositories/tagRepository';
 
 export class UpdateVocabularyCard {
   public constructor(private readonly db: DatabaseClient) {}
@@ -18,9 +19,13 @@ export class UpdateVocabularyCard {
     await this.db.execAsync('BEGIN IMMEDIATE;');
     try {
       const updatedNote = await noteRepository.update(note.id, input);
+      const tags =
+        input.tags === undefined
+          ? await new TagRepository(this.db).listByNote(note.id)
+          : await new TagRepository(this.db).replaceForNote(note.id, input.tags);
       if (resetScheduling) await cardRepository.resetSchedulingByNoteId(note.id);
       await this.db.execAsync('COMMIT;');
-      return { note: updatedNote, resetScheduling };
+      return { note: updatedNote, tags, resetScheduling };
     } catch (error) {
       await this.db.execAsync('ROLLBACK;');
       throw error;
