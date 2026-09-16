@@ -311,6 +311,18 @@ export class CardRepository {
     if (result.changes === 0) throw new Error('Card does not exist.');
   }
 
+  public async resetScheduling(id: string): Promise<void> {
+    const result = await this.db.runAsync(
+      `UPDATE cards SET state = 0, due_at = NULL, due_day = NULL, stability = NULL,
+       difficulty = NULL, last_review_at = NULL, scheduled_days = 0, elapsed_days = 0,
+       learning_steps = 0, reps = 0, lapses = 0, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      new Date().toISOString(),
+      id,
+    );
+    if (result.changes === 0) throw new Error('Card does not exist.');
+  }
+
   public async remove(id: string): Promise<void> {
     const result = await this.db.runAsync(
       'UPDATE cards SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
