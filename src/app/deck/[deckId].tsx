@@ -16,7 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateVocabularyCard } from '../../application/createVocabularyCard';
 import type { Card } from '../../domain/cards';
-import { getCardDisplayStatus, type CardDisplayStatus } from '../../domain/cardStatus';
+import {
+  formatCardSchedule,
+  getCardDisplayStatus,
+  type CardDisplayStatus,
+} from '../../domain/cardStatus';
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 
@@ -222,6 +226,7 @@ function VocabularyCard({ card, onDelete }: { card: Card; onDelete: () => void }
         </Pressable>
       </View>
       <Text style={[styles.front, stylesByStatus[status].front]}>{card.front}</Text>
+      <Text style={styles.schedule}>{formatCardSchedule(card, new Date())}</Text>
       <View style={[styles.divider, stylesByStatus[status].divider]} />
       <Text style={styles.back}>{card.back}</Text>
       <Pressable style={styles.cardDeleteAction} onPress={onDelete} accessibilityRole="button">
@@ -335,6 +340,7 @@ const styles = StyleSheet.create({
   front: { color: '#14213D', fontSize: 24, fontWeight: '800', marginTop: 17 },
   divider: { backgroundColor: '#EEF2F6', height: 1, marginVertical: 15 },
   back: { color: '#475467', fontSize: 18, fontWeight: '500' },
+  schedule: { color: '#667085', fontSize: 13, marginTop: 8 },
   cardDeleteAction: { alignSelf: 'flex-start', marginTop: 17 },
   cardDeleteText: { color: '#B42318', fontSize: 13, fontWeight: '700' },
   emptyState: {

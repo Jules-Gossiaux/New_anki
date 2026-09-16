@@ -32,6 +32,8 @@ The card editor derives its display category from the same UTC scheduling semant
 
 Global review settings are stored as validated key/value entries in `app_settings`. Daily new-card and review limits are computed from distinct cards reviewed during the current UTC day, while learning and relearning steps are passed to the pinned FSRS adapter.
 
+The deck editor displays each card's scheduling category and exact `due_at` in the device locale for diagnostic clarity. A study session that is empty because a daily limit was reached reports that reason separately from a session with no cards scheduled for today.
+
 ## Scheduler
 
 The scheduler receives a card scheduling snapshot, review rating, current instant and settings, and returns a validated scheduling decision plus updated state. The current adapter uses the pinned `ts-fsrs` 5.4.2 implementation with fuzzing disabled for deterministic behavior. Review timestamps are UTC instants; review cards retain an exact UTC due timestamp and a UTC calendar-day ordinal for day-based selection. A review transaction persists the decision and append-only log atomically. A study session loads all cards whose due date belongs to the current UTC day, including future short-term learning cards, but normally presents currently available cards first. Once those are exhausted, it presents the nearest future card from the same UTC day in due-time order. Cards scheduled for the next day are excluded from the session.

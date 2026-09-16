@@ -1,5 +1,5 @@
 import { CARD_STATES, type Card } from '../../src/domain/cards';
-import { getCardDisplayStatus } from '../../src/domain/cardStatus';
+import { formatCardSchedule, getCardDisplayStatus } from '../../src/domain/cardStatus';
 
 const baseCard: Card = {
   id: 'card-id',
@@ -44,5 +44,15 @@ describe('getCardDisplayStatus', () => {
     expect(
       getCardDisplayStatus({ ...baseCard, state: CARD_STATES.review, dueDay: tomorrow }, now),
     ).toBe('future');
+  });
+
+  it('formats the exact scheduling date for debugging and users', () => {
+    expect(
+      formatCardSchedule(
+        { ...baseCard, state: CARD_STATES.learning, dueAt: '2026-09-16T18:00:00.000Z' },
+        now,
+      ),
+    ).toMatch(/^Aujourd’hui à /);
+    expect(formatCardSchedule(baseCard, now)).toBe('Nouvelle — pas encore programmée');
   });
 });

@@ -40,6 +40,7 @@ export default function StudyScreen() {
   const [cards, setCards] = useState<Card[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [isDailyLimitReached, setDailyLimitReached] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
   const now = new Date(clock);
@@ -62,8 +63,10 @@ export default function StudyScreen() {
       cardRepository.listStudyQueue(deckId, currentNow),
       cardRepository.getDailyStudyProgress(currentNow),
     ]);
+    const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
     setSettings(currentSettings);
-    setCards(applyDailyLimits(queue, currentSettings, progress));
+    setCards(limitedQueue);
+    setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
     setRevealed(false);
   }, [cardRepository, db, deckId, router, settingsRepository]);
 
@@ -114,7 +117,18 @@ export default function StudyScreen() {
 
         {!card ? (
           <View style={styles.empty}>
-            {nextFutureCard ? (
+            {isDailyLimitReached ? (
+              <>
+                <Text style={styles.emptyIcon}>✓</Text>
+                <Text style={styles.emptyTitle}>Limite quotidienne atteinte</Text>
+                <Text style={styles.emptyText}>
+                  Les cartes restantes seront disponibles demain selon tes réglages.
+                </Text>
+                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                  <Text style={styles.secondaryButtonText}>Retour au deck</Text>
+                </Pressable>
+              </>
+            ) : nextFutureCard ? (
               <>
                 <Text style={styles.emptyTitle}>Prochaine carte dans {remainingSeconds}s</Text>
                 <Text style={styles.emptyText}>
