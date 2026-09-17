@@ -6,15 +6,17 @@ This investigation is Android-first. iOS is intentionally deferred and no iOS im
 
 ## Local spike prerequisites
 
-The repository currently has no generated `android/` or `ios/` project and the Expo configuration only uses the existing Expo Router and SQLite plugins. Java 17 is available in the current environment, but Android `adb` is not currently available on the PATH. A real-device spike therefore requires installing/configuring the Android SDK Platform-Tools, enabling USB debugging on the test device, and creating an Expo development build before native APIs can be tested. Expo Go remains suitable for the existing JavaScript-only app but cannot validate this capability.
+The repository does not commit generated `android/` or `ios/` projects. The Expo configuration remains lightweight; native experimentation is performed through a local Expo module and a development build. Expo Go remains suitable for the existing JavaScript-only app but cannot validate this capability.
 
-On 2026-09-17, the connected OnePlus NE2213 running Android 16 (API 36) was detected by `adb`, and the first Expo development build compiled and installed successfully after configuring a user-local JDK 17. The build currently validates only the native runtime; Usage Access is not yet requested or read.
+On 2026-09-17, the connected OnePlus NE2213 running Android 16 (API 36) was detected by `adb`. A user-local JDK 17 was configured, `expo-dev-client` was added, and an Expo development build compiled, installed, and included the local `AndroidUsageDiagnostics` module. The merged APK manifest contains `android.permission.PACKAGE_USAGE_STATS`. This proves the native integration path, not yet the reliability of the product behavior.
 
 ## Findings (September 2026)
 
 ### Android
 
 `UsageStatsManager` can query device usage history and events, but most cross-app methods require `android.permission.PACKAGE_USAGE_STATS` and the user must grant Usage Access in Settings. This needs native Android code/configuration and is not available as an Expo Go-only feature. A three-minute threshold could be computed from usage events, but delivery timing, OEM background limits and battery behavior require a development-build spike. An unlock-specific app callback is not a general public Expo capability; the product should use a notification or supported foreground/usage-access flow.
+
+The current read-only diagnostic prototype is reachable from Settings on Android development builds. It exposes the Usage Access status, opens the system Usage Access screen, and displays the last ten minutes of usage events. It does not schedule notifications, select cards, alter FSRS, monitor continuously, or show an overlay.
 
 The Android spike must answer these questions on a real device:
 
@@ -56,3 +58,14 @@ The spike is successful only if the result clearly states which product intent i
 3. Build a read-only diagnostic prototype that reports permission state and recent usage events locally, without vocabulary content or automatic interventions.
 4. Measure the event sequence, lock/reset behavior and background reliability on the real device.
 5. Decide whether the first shippable slice is an Android notification prompt, an in-app prompt on resume, or a documented limitation.
+
+## Manual validation procedure
+
+1. Start the development server with `npx expo start --dev-client` and open the installed Android development build.
+2. Open `Réglages` → `Diagnostic Android (Phase B)`.
+3. Confirm that the initial state reports Usage Access as not granted.
+4. Open the Android Usage Access settings from the diagnostic screen and grant access to Vocabulary.
+5. Return to the app, press `Actualiser`, then use and lock the phone several times. Check whether screen/keyguard and foreground-application events appear with plausible timestamps.
+6. Repeat with the app backgrounded and after revoking access. Record whether events stop, are delayed, or disappear.
+
+This procedure is intentionally diagnostic. It does not yet establish that an unlock can trigger an immediate review flow or that a three-minute threshold can be delivered while the app is closed.
