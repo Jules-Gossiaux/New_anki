@@ -24,10 +24,20 @@ export default function AndroidUsageDiagnosticsScreen() {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [events, setEvents] = useState<AndroidUsageEvent[]>([]);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [reminderCardCount, setReminderCardCount] = useState<number | null>(null);
   const [isConfiguring, setConfiguring] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(() => {
+  const getAvailableCardCount = useCallback(async () => {
+    const decks = await deckRepository.listAll();
+    const rootDecks = decks.filter((deck) => deck.parentId === null);
+    const counts = await Promise.all(
+      rootDecks.map((deck) => cardRepository.getStudyCounts(deck.id, new Date())),
+    );
+    return counts.reduce((total, count) => total + count.new + count.today, 0);
+  }, [cardRepository, deckRepository]);
+
+  const refresh = useCallback(async () => {
     if (Platform.OS !== 'android' || !AndroidUsageDiagnostics) {
       setError('Ce diagnostic est disponible uniquement sur Android.');
       return;
@@ -37,14 +47,23 @@ export default function AndroidUsageDiagnosticsScreen() {
       const access = AndroidUsageDiagnostics.hasUsageAccess();
       setHasAccess(access);
       setEvents(access ? AndroidUsageDiagnostics.getRecentEvents(EVENT_WINDOW_MS) : []);
-      setRemindersEnabled(AndroidUsageDiagnostics.isReminderEnabled());
+      const enabled = AndroidUsageDiagnostics.isReminderEnabled();
+      if (enabled) {
+        const availableCards = await getAvailableCardCount();
+        AndroidUsageDiagnostics.setReminderConfiguration(availableCards > 0, availableCards);
+        setRemindersEnabled(availableCards > 0);
+        setReminderCardCount(availableCards);
+      } else {
+        setRemindersEnabled(false);
+        setReminderCardCount(null);
+      }
       setError(null);
     } catch (diagnosticError) {
       setError(
         diagnosticError instanceof Error ? diagnosticError.message : 'Diagnostic indisponible.',
       );
     }
-  }, []);
+  }, [getAvailableCardCount]);
 
   const configureReminders = async () => {
     if (!AndroidUsageDiagnostics || !hasAccess || isConfiguring) return;
@@ -54,17 +73,14 @@ export default function AndroidUsageDiagnosticsScreen() {
       if (permission !== PermissionsAndroid.RESULTS.GRANTED) {
         throw new Error('Les notifications Android sont nécessaires pour activer les rappels.');
       }
-      const decks = await deckRepository.listAll();
-      const counts = await Promise.all(
-        decks.map((deck) => cardRepository.getStudyCounts(deck.id, new Date())),
-      );
-      const dueCardCount = counts.reduce((total, count) => total + count.new + count.today, 0);
-      AndroidUsageDiagnostics.setReminderConfiguration(true, dueCardCount);
-      setRemindersEnabled(true);
+      const dueCardCount = await getAvailableCardCount();
+      AndroidUsageDiagnostics.setReminderConfiguration(dueCardCount > 0, dueCardCount);
+      setRemindersEnabled(dueCardCount > 0);
+      setReminderCardCount(dueCardCount);
       setError(
         dueCardCount > 0
           ? `Rappels activés pour ${dueCardCount} carte${dueCardCount === 1 ? '' : 's'}.`
-          : 'Aucune carte disponible : aucune notification ne sera envoyée.',
+          : 'Aucune carte disponible : les rappels restent désactivés.',
       );
     } catch (configurationError) {
       setError(
@@ -81,12 +97,13 @@ export default function AndroidUsageDiagnosticsScreen() {
     if (!AndroidUsageDiagnostics) return;
     AndroidUsageDiagnostics.setReminderConfiguration(false, 0);
     setRemindersEnabled(false);
+    setReminderCardCount(null);
     setError('Rappels Android désactivés.');
   };
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      void refresh();
     }, [refresh]),
   );
 
@@ -147,6 +164,13 @@ export default function AndroidUsageDiagnosticsScreen() {
               {isConfiguring ? 'Activation…' : 'Activer les rappels expérimentaux'}
             </Text>
           </Pressable>
+        )}
+        {reminderCardCount !== null && (
+          <Text style={styles.muted}>
+            Instantané actif : {reminderCardCount} carte{reminderCardCount === 1 ? '' : 's'}{' '}
+            disponible
+            {reminderCardCount === 1 ? '' : 's'}.
+          </Text>
         )}
         <Pressable
           style={styles.testButton}

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -39,6 +40,7 @@ class AndroidUsageDiagnosticsModule : Module() {
         .putBoolean(KEY_ENABLED, enabled)
         .putInt(KEY_DUE_CARD_COUNT, dueCardCount.toInt())
         .apply()
+      Log.i(TAG, "Reminder configuration: enabled=$enabled dueCardCount=${dueCardCount.toInt()}")
       if (enabled) startReminderService() else stopReminderService()
     }
 
@@ -123,5 +125,6 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
+    const val TAG = "AndroidUsageReminder"
   }
 }

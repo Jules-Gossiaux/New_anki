@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 
 class AndroidUsageReminderService : Service() {
   private val handler = Handler(Looper.getMainLooper())
@@ -24,17 +25,24 @@ class AndroidUsageReminderService : Service() {
 
   override fun onCreate() {
     super.onCreate()
+    Log.i(TAG, "Foreground reminder service created")
     createNotificationChannel(this)
     startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification(this))
     registerScreenReceiver()
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (!hasAvailableCards()) stopSelf()
+    if (!hasAvailableCards()) {
+      Log.i(TAG, "Foreground reminder service stopped: no available cards")
+      stopSelf()
+    } else {
+      Log.i(TAG, "Foreground reminder service active")
+    }
     return START_NOT_STICKY
   }
 
   override fun onDestroy() {
+    Log.i(TAG, "Foreground reminder service destroyed")
     cancelUsageCheck()
     screenReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
     screenReceiver = null
@@ -67,14 +75,19 @@ class AndroidUsageReminderService : Service() {
   }
 
   private fun onPhoneUnlocked() {
-    if (!hasAvailableCards()) return
+    if (!hasAvailableCards()) {
+      Log.i(TAG, "Unlock ignored: no available cards")
+      return
+    }
     val unlockedAt = System.currentTimeMillis()
+    Log.i(TAG, "Phone unlocked: sending 3-card notification")
     preferences().edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockedAt).apply()
     showReviewNotification(this, "Révision disponible", "3 cartes sont prêtes à être révisées.", 3)
     scheduleUsageCheck(unlockedAt)
   }
 
   private fun onScreenLocked() {
+    Log.i(TAG, "Screen locked: cancelling usage check")
     preferences().edit().remove(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT).apply()
     cancelUsageCheck()
   }
@@ -84,10 +97,12 @@ class AndroidUsageReminderService : Service() {
     val check = object : Runnable {
       override fun run() {
         if (!hasAvailableCards() || preferences().getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L) != unlockedAt) {
+          Log.i(TAG, "Usage check cancelled")
           cancelUsageCheck()
           return
         }
         if (hasEligibleForegroundDuration(unlockedAt, System.currentTimeMillis())) {
+          Log.i(TAG, "Eligible usage threshold reached: sending 5-card notification")
           showReviewNotification(this@AndroidUsageReminderService, "Révision après utilisation", "5 cartes sont prêtes à être révisées.", 5)
           cancelUsageCheck()
           return
@@ -157,6 +172,7 @@ class AndroidUsageReminderService : Service() {
     private const val TEST_NOTIFICATION_ID = 504
     private const val USAGE_CHECK_INTERVAL_MS = 1_000L
     private const val TEST_USAGE_DURATION_MS = 10_000L
+    private const val TAG = "AndroidUsageReminder"
 
     fun sendTestNotification(context: Context) {
       showReviewNotification(context, "Notification de test", "Les notifications Android fonctionnent.", TEST_NOTIFICATION_ID)
