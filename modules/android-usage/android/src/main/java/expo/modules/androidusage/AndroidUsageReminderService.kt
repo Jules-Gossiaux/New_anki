@@ -7,10 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
@@ -27,15 +25,17 @@ class AndroidUsageReminderService : Service() {
 
   private val handler = Handler(Looper.getMainLooper())
   private var usageCheck: Runnable? = null
-  private var screenReceiver: BroadcastReceiver? = null
+  private var unlockMonitor: Runnable? = null
   private var notifiedUsageSessionStartedAt: Long? = null
+  private var loggedUsageSessionStartedAt: Long? = null
+  private var lastUnlockEventAt = 0L
 
   override fun onCreate() {
     super.onCreate()
     Log.i(TAG, "Foreground reminder service created")
     createNotificationChannel(this)
     startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification(this))
-    registerScreenReceiver()
+    startUnlockMonitor()
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -51,58 +51,75 @@ class AndroidUsageReminderService : Service() {
   override fun onDestroy() {
     Log.i(TAG, "Foreground reminder service destroyed")
     cancelUsageCheck()
-    screenReceiver?.let { receiver -> runCatching { unregisterReceiver(receiver) } }
-    screenReceiver = null
+    cancelUnlockMonitor()
     stopForeground(STOP_FOREGROUND_REMOVE)
     super.onDestroy()
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
 
-  private fun registerScreenReceiver() {
-    if (screenReceiver != null) return
-    val receiver = object : BroadcastReceiver() {
-      override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-          Intent.ACTION_USER_PRESENT -> onPhoneUnlocked()
-          Intent.ACTION_SCREEN_OFF -> onScreenLocked()
+  private fun startUnlockMonitor() {
+    if (unlockMonitor != null) return
+    var queryStart = System.currentTimeMillis()
+    val monitor = object : Runnable {
+      override fun run() {
+        if (!hasAvailableCards()) {
+          Log.i(TAG, "Unlock monitor stopped: no available cards")
+          stopSelf()
+          return
         }
+
+        val now = System.currentTimeMillis()
+        val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val events = manager.queryEvents(queryStart, now)
+        val event = UsageEvents.Event()
+
+        while (events.hasNextEvent()) {
+          events.getNextEvent(event)
+          when (event.eventType) {
+            UsageEvents.Event.KEYGUARD_HIDDEN -> onPhoneUnlocked(event.timeStamp)
+            UsageEvents.Event.SCREEN_NON_INTERACTIVE -> onScreenLocked()
+          }
+        }
+
+        queryStart = now
+        handler.postDelayed(this, USAGE_CHECK_INTERVAL_MS)
       }
     }
-    val filter = IntentFilter().apply {
-      addAction(Intent.ACTION_USER_PRESENT)
-      addAction(Intent.ACTION_SCREEN_OFF)
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-      registerReceiver(receiver, filter)
-    }
-    screenReceiver = receiver
+    unlockMonitor = monitor
+    handler.postDelayed(monitor, USAGE_CHECK_INTERVAL_MS)
   }
 
-  private fun onPhoneUnlocked() {
+  private fun cancelUnlockMonitor() {
+    unlockMonitor?.let(handler::removeCallbacks)
+    unlockMonitor = null
+  }
+
+  private fun onPhoneUnlocked(unlockedAt: Long) {
+    if (unlockedAt <= lastUnlockEventAt) return
+    lastUnlockEventAt = unlockedAt
     if (!hasAvailableCards()) {
       Log.i(TAG, "Unlock ignored: no available cards")
       return
     }
-    val unlockedAt = System.currentTimeMillis()
-    Log.i(TAG, "Phone unlocked: sending 3-card notification")
+    Log.i(TAG, "Phone unlocked from Usage Access event: sending 3-card notification")
     preferences().edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockedAt).apply()
     showReviewNotification(this, "Révision disponible", "3 cartes sont prêtes à être révisées.")
     scheduleUsageCheck(unlockedAt)
   }
 
   private fun onScreenLocked() {
-    Log.i(TAG, "Screen locked: cancelling usage check")
+    if (usageCheck != null) Log.i(TAG, "Screen locked: cancelling usage check")
     preferences().edit().remove(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT).apply()
     notifiedUsageSessionStartedAt = null
+    loggedUsageSessionStartedAt = null
     cancelUsageCheck()
   }
 
   private fun scheduleUsageCheck(unlockedAt: Long) {
     cancelUsageCheck()
     notifiedUsageSessionStartedAt = null
+    loggedUsageSessionStartedAt = null
     val check = object : Runnable {
       override fun run() {
         if (!hasAvailableCards() || preferences().getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L) != unlockedAt) {
@@ -113,6 +130,10 @@ class AndroidUsageReminderService : Service() {
         val session = getEligibleForegroundSession(unlockedAt, System.currentTimeMillis())
         if (session == null) {
           notifiedUsageSessionStartedAt = null
+          loggedUsageSessionStartedAt = null
+        } else if (loggedUsageSessionStartedAt != session.startedAt) {
+          Log.i(TAG, "Eligible foreground session started for ${session.packageName}")
+          loggedUsageSessionStartedAt = session.startedAt
         } else if (
           System.currentTimeMillis() - session.startedAt >= TEST_USAGE_DURATION_MS &&
           notifiedUsageSessionStartedAt != session.startedAt
@@ -150,9 +171,9 @@ class AndroidUsageReminderService : Service() {
 
   private fun getEligibleForegroundSession(start: Long, end: Long): ForegroundSession? {
     val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    // ACTION_USER_PRESENT can arrive a fraction after Android has resumed the foreground
-    // activity. The small lookback retains that activity event without carrying a session
-    // across a screen lock: screen events below always clear the active session.
+    // The unlock event and foreground activity can be emitted in either order. The small
+    // lookback retains the activity event without carrying a session across a screen lock:
+    // screen events below always clear the active session.
     val events = manager.queryEvents(start - EVENT_LOOKBACK_MS, end)
     val event = UsageEvents.Event()
     var activePackage: String? = null
