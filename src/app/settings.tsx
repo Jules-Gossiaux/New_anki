@@ -1,7 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   DEFAULT_REVIEW_SETTINGS,
@@ -118,6 +127,14 @@ export default function SettingsScreen() {
         <Pressable style={styles.saveButton} onPress={() => void save()} disabled={isSaving}>
           <Text style={styles.saveText}>{isSaving ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
+        {Platform.OS === 'android' && (
+          <Pressable
+            style={styles.diagnosticButton}
+            onPress={() => router.push('/diagnostics/android-usage')}
+          >
+            <Text style={styles.diagnosticText}>Diagnostic Android (Phase B)</Text>
+          </Pressable>
+        )}
       </ScrollView>
       {toastMessage && (
         <View pointerEvents="none" style={styles.toast}>
@@ -206,6 +223,8 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  diagnosticButton: { alignItems: 'center', marginTop: 18, padding: 12 },
+  diagnosticText: { color: '#667085', fontSize: 13, fontWeight: '700' },
   toast: {
     alignSelf: 'center',
     backgroundColor: '#344054',
