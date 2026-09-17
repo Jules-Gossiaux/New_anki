@@ -127,9 +127,11 @@ export default function AndroidUsageDiagnosticsScreen() {
         <Text style={styles.label}>Rappels Android expérimentaux</Text>
         <Text style={styles.muted}>
           En mode test, le déverrouillage envoie une notification pour 3 cartes et 10 secondes
-          continues dans une autre application peuvent envoyer une notification pour 5 cartes. Le
-          comportement cible est de 3 minutes. Le compteur est mémorisé au moment de l’activation et
-          doit être réactualisé après une session d’étude.
+          continues dans une autre application envoient une notification pour 5 cartes. Lorsque les
+          rappels sont actifs, Android affiche aussi une notification persistante : elle maintient
+          le service nécessaire aux tests en arrière-plan. Le comportement cible est de 3 minutes.
+          Le compteur est mémorisé au moment de l’activation et doit être réactualisé après une
+          session d’étude.
         </Text>
         {remindersEnabled ? (
           <Pressable style={styles.secondaryButton} onPress={disableReminders}>

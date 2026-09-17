@@ -31,7 +31,7 @@ The Android spike must answer these questions on a real device:
 
 The first prototype uses a development build, continuous usage, reset-on-lock semantics and notifications that open the application home screen. It excludes the Vocabulary app, Android system packages and the launcher from the test-duration measurement. A future product setting may replace this broad initial rule with an explicit application allowlist. It does not implement an accessibility-service overlay or a forced full-screen intervention.
 
-The experimental reminder flow is now implemented behind an explicit action on the diagnostic screen. When enabled, it stores a snapshot of the current number of new and today-review cards in Android `SharedPreferences`. A dynamically registered receiver handles `USER_PRESENT` while the app process remains alive and sends a 3-card notification. For fast device testing, it schedules a non-exact 10-second alarm; if the usage history shows 10 seconds of eligible foreground activity without a lock, it sends a 5-card notification. The intended product threshold remains three minutes and must not be inferred from this test value. Notifications are skipped when the snapshot is zero or notification permission is denied. The snapshot is deliberately refreshed by the user and is not a second source of truth for the SQLite database.
+The experimental reminder flow is now implemented behind an explicit action on the diagnostic screen. When enabled, it stores a snapshot of the current number of new and today-review cards in Android `SharedPreferences` and starts an opt-in Android foreground service. The service displays a persistent low-priority notification while active, dynamically receives `USER_PRESENT` and sends a 3-card notification. For fast device testing, it polls the Usage Access history once per second; after 10 continuous seconds in an eligible foreground application without a lock, it sends a 5-card notification. The intended product threshold remains three minutes and must not be inferred from this test value. Notifications are skipped when the snapshot is zero or notification permission is denied. The snapshot is deliberately refreshed by the user and is not a second source of truth for the SQLite database.
 
 ### iOS (deferred)
 
@@ -57,7 +57,7 @@ The spike is successful only if the result clearly states which product intent i
 
 ### Interim conclusion
 
-The data-observation part is feasible on the tested Android device. The product behavior is only partially feasible at this stage: the dynamically registered unlock receiver and alarm still need real-device validation while the app is backgrounded. The prototype only emits notifications and opens the application home screen when the user taps one. A production decision should keep the notification path unless delivery proves unreliable under the target device’s background and battery policies.
+The data-observation part is feasible on the tested Android device. The product behavior is only partially feasible at this stage: the foreground-service reminder flow still needs real-device validation while the app is backgrounded. The prototype only emits notifications and opens the application home screen when the user taps one. A production decision must also assess Android foreground-service policy before shipping this mechanism.
 
 ## Next actions
 
@@ -76,8 +76,8 @@ The data-observation part is feasible on the tested Android device. The product 
 5. Return to the app, press `Actualiser`, then use and lock the phone several times. Check whether screen/keyguard and foreground-application events appear with plausible timestamps.
 6. Repeat with the app backgrounded and after revoking access. Record whether events stop, are delayed, or disappear.
 7. With cards available, press `Activer les rappels expérimentaux` and grant notification permission.
-8. Background or force-close Vocabulary, unlock the phone, and check whether the 3-card notification arrives.
+8. Keep the persistent “Rappels de révision actifs” notification visible, background Vocabulary, unlock the phone, and check whether the 3-card notification arrives. Do not force-close the app: force-stop ends any Android foreground service.
 9. Unlock again and use an eligible third-party application continuously for at least 10 seconds. Check whether the 5-card notification arrives, then repeat while locking before 10 seconds.
 10. Reopen the diagnostic screen and refresh the snapshot after studying cards. Confirm that disabling reminders stops later notifications.
 
-This procedure is intentionally diagnostic. The notification timing may be delayed because the alarm is deliberately non-exact, and OEM battery policies may suppress background work. A successful result still does not justify a forced overlay or a claim of cross-platform support.
+This procedure is intentionally diagnostic. OEM battery policies may still suppress background work, and a production foreground-service declaration requires a Google Play policy review. A successful result still does not justify a forced overlay or a claim of cross-platform support.

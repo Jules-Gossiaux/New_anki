@@ -3,9 +3,7 @@ package expo.modules.androidusage
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.IntentFilter
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -13,8 +11,6 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class AndroidUsageDiagnosticsModule : Module() {
-  private var unlockReceiver: BroadcastReceiver? = null
-
   override fun definition() = ModuleDefinition {
     Name("AndroidUsageDiagnostics")
 
@@ -43,11 +39,11 @@ class AndroidUsageDiagnosticsModule : Module() {
         .putBoolean(KEY_ENABLED, enabled)
         .putInt(KEY_DUE_CARD_COUNT, dueCardCount.toInt())
         .apply()
-      if (enabled) registerUnlockReceiver() else unregisterUnlockReceiver()
+      if (enabled) startReminderService() else stopReminderService()
     }
 
     Function("sendTestNotification") {
-      AndroidUsageReminderReceiver.sendTestNotification(requireContext())
+      AndroidUsageReminderService.sendTestNotification(requireContext())
     }
   }
 
@@ -58,23 +54,18 @@ class AndroidUsageDiagnosticsModule : Module() {
   private fun reminderPreferences() =
     requireContext().getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-  private fun registerUnlockReceiver() {
-    if (unlockReceiver != null) return
-    val receiver = AndroidUsageReminderReceiver()
-    val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      requireContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+  private fun startReminderService() {
+    val context = requireContext()
+    val intent = Intent(context, AndroidUsageReminderService::class.java)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      context.startForegroundService(intent)
     } else {
-      requireContext().registerReceiver(receiver, filter)
+      context.startService(intent)
     }
-    unlockReceiver = receiver
   }
 
-  private fun unregisterUnlockReceiver() {
-    unlockReceiver?.let { receiver ->
-      runCatching { requireContext().unregisterReceiver(receiver) }
-      unlockReceiver = null
-    }
+  private fun stopReminderService() {
+    requireContext().stopService(Intent(requireContext(), AndroidUsageReminderService::class.java))
   }
 
   private fun hasUsageAccess(): Boolean {
@@ -132,7 +123,5 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
-    const val ACTION_SEQUENCE_CHECK = "expo.modules.androidusage.ACTION_SEQUENCE_CHECK"
-    const val SEQUENCE_DURATION_MS = 10 * 1000L
   }
 }
