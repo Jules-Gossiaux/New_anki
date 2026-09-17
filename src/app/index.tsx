@@ -98,25 +98,29 @@ export default function DecksScreen() {
   const deleteDeck = () => {
     if (!editingDeck) return;
     const deck = editingDeck;
-    Alert.alert('Supprimer ce deck ?', deck.name, [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await repository.remove(deck.id);
-            closeModal();
-            await loadDecks();
-          } catch (error) {
-            Alert.alert(
-              'Suppression impossible',
-              error instanceof Error ? error.message : 'Erreur inconnue',
-            );
-          }
+    Alert.alert(
+      'Supprimer ce deck et son contenu ?',
+      `${deck.name}\n\nSes sous-decks et toutes leurs cartes seront également supprimés.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await repository.remove(deck.id);
+              closeModal();
+              await loadDecks();
+            } catch (error) {
+              Alert.alert(
+                'Suppression impossible',
+                error instanceof Error ? error.message : 'Erreur inconnue',
+              );
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   return (

@@ -18,7 +18,7 @@ Accessible mobile study UX, restrained motion, progress and review friction redu
 
 ## Phase A completion audit
 
-Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks, bidirectional note/card creation, editing and deletion, pinned FSRS scheduling per direction, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, and consistent blue/new, red/today and green/future card categories.
+Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks with recursive soft deletion, bidirectional note/card creation, editing and deletion, pinned FSRS scheduling per direction, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, and consistent blue/new, red/today and green/future card categories.
 
 Still required before declaring Phase A complete: staged `.apkg` import with fixtures and media handling, and broader Android regression validation. Editing preserves review history and resets both direction cards' current FSRS state only when the normalized front or back changes. `.apkg` export and iOS device validation are deliberately outside the current MVP acceptance criteria.
 

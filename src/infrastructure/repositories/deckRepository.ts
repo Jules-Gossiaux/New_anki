@@ -134,23 +134,43 @@ export class DeckRepository {
   }
 
   public async remove(id: string): Promise<void> {
-    const children = await this.db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) AS count FROM decks WHERE parent_id = ? AND deleted_at IS NULL',
-      id,
-    );
-    const cards = await this.db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) AS count FROM cards WHERE deck_id = ? AND deleted_at IS NULL',
-      id,
-    );
-    if ((children?.count ?? 0) > 0 || (cards?.count ?? 0) > 0) {
-      throw new Error('Deck must be empty before it can be deleted.');
+    const deletedAt = now();
+    await this.db.execAsync('BEGIN IMMEDIATE;');
+    try {
+      await this.db.runAsync(
+        `WITH RECURSIVE descendants(id) AS (
+           SELECT id FROM decks WHERE id = ? AND deleted_at IS NULL
+           UNION ALL
+           SELECT decks.id FROM decks JOIN descendants ON decks.parent_id = descendants.id
+           WHERE decks.deleted_at IS NULL
+         )
+         UPDATE cards
+         SET deleted_at = ?, updated_at = ?
+         WHERE deck_id IN (SELECT id FROM descendants) AND deleted_at IS NULL`,
+        id,
+        deletedAt,
+        deletedAt,
+      );
+
+      const result = await this.db.runAsync(
+        `WITH RECURSIVE descendants(id) AS (
+           SELECT id FROM decks WHERE id = ? AND deleted_at IS NULL
+           UNION ALL
+           SELECT decks.id FROM decks JOIN descendants ON decks.parent_id = descendants.id
+           WHERE decks.deleted_at IS NULL
+         )
+         UPDATE decks
+         SET deleted_at = ?, updated_at = ?
+         WHERE id IN (SELECT id FROM descendants) AND deleted_at IS NULL`,
+        id,
+        deletedAt,
+        deletedAt,
+      );
+      if (result.changes === 0) throw new Error('Deck does not exist.');
+      await this.db.execAsync('COMMIT;');
+    } catch (error) {
+      await this.db.execAsync('ROLLBACK;');
+      throw error;
     }
-    const result = await this.db.runAsync(
-      'UPDATE decks SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-      now(),
-      now(),
-      id,
-    );
-    if (result.changes === 0) throw new Error('Deck does not exist.');
   }
 }

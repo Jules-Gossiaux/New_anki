@@ -4,6 +4,7 @@
 
 ### Added
 
+- Deck deletion now recursively soft-deletes the selected deck, its sub-decks and their cards in one transaction, while preserving notes and review history; the confirmation explains this cascade.
 - Preserved existing direction-card FSRS state when changing the selected study directions; only newly enabled directions start with a fresh state.
 - Added card-editor direction choices: both directions, forward only, or reverse only, with independent FSRS cards.
 - Made the card editor open immediately and keep all fields inside one bounded, scrollable modal panel.
