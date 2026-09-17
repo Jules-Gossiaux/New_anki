@@ -9,6 +9,7 @@
 - Made Android reminder notifications distinct for every unlock and for each new eligible foreground-app session; returning to a recent app now restarts its ten-second test timer.
 - Replaced the unreliable Android `USER_PRESENT` broadcast with observed Usage Access lock-state events for reminder detection.
 - Validated repeatable Android unlock and eligible app-use reminder notifications on the OnePlus test device; reboot, force-stop and battery-policy cases remain pending.
+- Documented intervention-study choices: optional priority deck, up-to limits, abandoned sessions and notification fallback when Android blocks background screen launches.
 
 ### Added
 

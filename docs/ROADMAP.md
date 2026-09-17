@@ -23,6 +23,8 @@ These are product goals, not yet implementation promises. Work starts with an An
 
 Current status: the Android development-build diagnostic and an opt-in notification prototype have been validated on the OnePlus test device while Vocabulary is backgrounded. In test mode, a visible foreground service polls Usage Access once per second, detects `KEYGUARD_HIDDEN` for each unlock, and detects ten seconds of continuous eligible usage. Reopening an app from Android's recent-app list starts a fresh test sequence. Notification taps open the application home screen; no study screen is opened automatically. This is not yet accepted as production behavior: force-stop, reboot, battery restrictions, selected-app configuration, Google Play foreground-service policy and the card-snapshot policy still require validation. The intended production usage threshold remains three minutes.
 
+The next slice is the real intervention study screen. It will use all decks by default, or an optional global priority deck, and will study up to three cards after unlock or up to five cards after eligible app use. A session uses only currently eligible cards and is abandoned if the user leaves it; a later trigger starts a new session. Notification mode is the reliable background behavior. An automatic-open preference may work when Vocabulary is already foregrounded, but must fall back to a notification when Android blocks background activity launches.
+
 The existing study engine remains the only scheduling engine. Any intervention must launch or offer the existing review flow and must not create a separate FSRS path.
 
 ## Phase A completion audit

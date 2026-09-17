@@ -39,7 +39,7 @@ UIKit exposes protected-data availability changes (lock/unlock-related lifecycle
 
 ### Product implication
 
-The safest first experiment is an opt-in Android notification that opens the application home screen. The current implementation is a feasibility prototype, not yet a finished review flow: it uses a user-refreshed snapshot, does not select a deck, and does not decrement that snapshot after a notification. iOS should investigate Device Activity authorization and an extension-based threshold, with a fallback to scheduled notifications. “Three reviews after unlock” and “five after three minutes” remain product intents, not cross-platform implementation promises.
+The safest first experiment is an opt-in Android notification. The current implementation is a feasibility prototype, not yet a finished review flow: it uses a user-refreshed snapshot, does not select a deck, and does not decrement that snapshot after a notification. The planned study screen will default to all decks and optionally prioritize one deck. Android background activity-launch restrictions mean a preference to open the screen directly cannot be guaranteed when Vocabulary is not foregrounded; notification delivery remains the required fallback. iOS should investigate Device Activity authorization and an extension-based threshold, with a fallback to scheduled notifications. “Three reviews after unlock” and “five after three minutes” remain product intents, not cross-platform implementation promises.
 
 ## Evidence
 
