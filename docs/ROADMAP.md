@@ -19,7 +19,7 @@ Phase B is primarily focused on two product intents:
 1. After an eligible phone unlock, prompt the user to complete three vocabulary reviews.
 2. After each eligible three-minute phone-use sequence, prompt the user to complete five vocabulary reviews.
 
-These are product goals, not yet cross-platform implementation promises. Before coding, investigate Android and iOS capabilities, required permissions and entitlements, Expo/development-build requirements, background behavior, battery impact, privacy and store policies. The implementation may need to use notifications, widgets, extensions or another supported mechanism instead of intercepting unlocks or displaying an unrestricted overlay. The behavior must also define due-card exhaustion, completed daily reviews, opt-out/configuration and eligible-app selection.
+These are product goals, not yet implementation promises. Work starts with an Android-only feasibility spike; iOS is intentionally deferred. The spike must validate Android capabilities, the Usage Access permission, Expo/development-build requirements, background behavior, battery impact, privacy and Google Play policy constraints. The implementation may need to use notifications or another supported mechanism instead of intercepting unlocks or displaying an unrestricted overlay. The behavior must also define due-card exhaustion, completed daily reviews, opt-out/configuration and eligible-app selection.
 
 The existing study engine remains the only scheduling engine. Any intervention must launch or offer the existing review flow and must not create a separate FSRS path.
 
