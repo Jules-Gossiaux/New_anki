@@ -33,12 +33,17 @@ class AndroidUsageDiagnosticsModule : Module() {
       reminderPreferences().getBoolean(KEY_ENABLED, false)
     }
 
-    Function("setReminderConfiguration") { enabled: Boolean, dueCardCount: Double ->
+    Function("setReminderConfiguration") { enabled: Boolean, dueCardCount: Double, studyDeckId: String ->
       require(dueCardCount >= 0) { "dueCardCount must not be negative" }
       reminderPreferences().edit()
         .putBoolean(KEY_ENABLED, enabled)
         .putInt(KEY_DUE_CARD_COUNT, dueCardCount.toInt())
+        .putString(KEY_STUDY_DECK_ID, studyDeckId)
         .apply()
+    }
+
+    Function("sendTestNotification") {
+      AndroidUsageReminderReceiver.sendTestNotification(requireContext())
     }
   }
 
@@ -103,8 +108,9 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val PREFERENCES_NAME = "android_usage_reminders"
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
+    const val KEY_STUDY_DECK_ID = "study_deck_id"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
     const val ACTION_SEQUENCE_CHECK = "expo.modules.androidusage.ACTION_SEQUENCE_CHECK"
-    const val SEQUENCE_DURATION_MS = 3 * 60 * 1000L
+    const val SEQUENCE_DURATION_MS = 10 * 1000L
   }
 }

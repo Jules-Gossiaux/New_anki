@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 
 class AndroidUsageReminderReceiver : BroadcastReceiver() {
@@ -31,6 +32,7 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     val unlockAt = System.currentTimeMillis()
     preferences.edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockAt).apply()
     showNotification(context, "Révision disponible", "3 cartes sont prêtes à être révisées.", 3)
+    openStudyScreen(context, preferences, 3)
 
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     val intent = Intent(context, AndroidUsageReminderReceiver::class.java)
@@ -52,12 +54,13 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     val unlockAt = preferences.getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L)
     if (unlockAt == 0L) return
     val now = System.currentTimeMillis()
-    if (hasThreeMinutesOfEligibleUsage(context, unlockAt, now)) {
+    if (hasEligibleUsageDuration(context, unlockAt, now)) {
       showNotification(context, "Révision après utilisation", "5 cartes sont prêtes à être révisées.", 5)
+      openStudyScreen(context, preferences, 5)
     }
   }
 
-  private fun hasThreeMinutesOfEligibleUsage(context: Context, start: Long, end: Long): Boolean {
+  private fun hasEligibleUsageDuration(context: Context, start: Long, end: Long): Boolean {
     val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     val events = usageStatsManager.queryEvents(start, end)
     val event = UsageEvents.Event()
@@ -95,6 +98,18 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     return !packageName.startsWith("android") && !packageName.startsWith("com.android.")
   }
 
+  private fun openStudyScreen(
+    context: Context,
+    preferences: android.content.SharedPreferences,
+    reviewLimit: Int,
+  ) {
+    val deckId = preferences.getString(AndroidUsageDiagnosticsModule.KEY_STUDY_DECK_ID, "") ?: ""
+    if (deckId.isBlank()) return
+    val intent = createStudyIntent(context, deckId, reviewLimit)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    runCatching { context.startActivity(intent) }
+  }
+
   private fun showNotification(context: Context, title: String, message: String, id: Int) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
       context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
@@ -107,8 +122,16 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
       )
     }
 
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-      ?: return
+    val preferences = context.getSharedPreferences(
+      AndroidUsageDiagnosticsModule.PREFERENCES_NAME,
+      Context.MODE_PRIVATE,
+    )
+    val deckId = preferences.getString(AndroidUsageDiagnosticsModule.KEY_STUDY_DECK_ID, "") ?: ""
+    val launchIntent = if (deckId.isBlank()) {
+      context.packageManager.getLaunchIntentForPackage(context.packageName)
+    } else {
+      createStudyIntent(context, deckId, if (id == 3) 3 else 5)
+    } ?: return
     val contentIntent = PendingIntent.getActivity(
       context,
       id,
@@ -129,8 +152,44 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     notificationManager.notify(id, notification)
   }
 
+  private fun createStudyIntent(context: Context, deckId: String, reviewLimit: Int): Intent {
+    return Intent(
+      Intent.ACTION_VIEW,
+      Uri.parse("vocabulary:///study/${Uri.encode(deckId)}?reviewLimit=$reviewLimit"),
+    ).setPackage(context.packageName)
+  }
+
   companion object {
     private const val CHANNEL_ID = "review-reminders"
     private const val SEQUENCE_REQUEST_CODE = 503
+    private const val TEST_NOTIFICATION_ID = 504
+
+    fun sendTestNotification(context: Context) {
+      showTestNotification(context)
+    }
+
+    private fun showTestNotification(context: Context) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
+      ) return
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        manager.createNotificationChannel(
+          NotificationChannel(CHANNEL_ID, "Révisions", NotificationManager.IMPORTANCE_DEFAULT),
+        )
+      }
+      val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        android.app.Notification.Builder(context, CHANNEL_ID)
+      } else {
+        android.app.Notification.Builder(context)
+      }
+        .setSmallIcon(android.R.drawable.ic_popup_reminder)
+        .setContentTitle("Notification de test")
+        .setContentText("Les notifications Android fonctionnent.")
+        .setAutoCancel(true)
+        .build()
+      manager.notify(TEST_NOTIFICATION_ID, notification)
+    }
   }
+
 }

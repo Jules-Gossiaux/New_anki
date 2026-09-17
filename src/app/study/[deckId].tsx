@@ -33,7 +33,10 @@ function formatDue(iso: string, now = new Date()): string {
 }
 
 export default function StudyScreen() {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, reviewLimit } = useLocalSearchParams<{
+    deckId: string;
+    reviewLimit?: string;
+  }>();
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
@@ -70,12 +73,20 @@ export default function StudyScreen() {
       cardRepository.listStudyQueue(deckId, currentNow),
       cardRepository.getDailyStudyProgress(currentNow),
     ]);
-    const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
+    const dailyLimitedQueue = applyDailyLimits(queue, currentSettings, progress);
+    const parsedReviewLimit = reviewLimit ? Number(reviewLimit) : null;
+    const interventionLimit =
+      parsedReviewLimit !== null && Number.isInteger(parsedReviewLimit) && parsedReviewLimit > 0
+        ? parsedReviewLimit
+        : null;
+    const limitedQueue = interventionLimit
+      ? dailyLimitedQueue.slice(0, interventionLimit)
+      : dailyLimitedQueue;
     setSettings(currentSettings);
     setCards(limitedQueue);
-    setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
+    setDailyLimitReached(queue.length > 0 && dailyLimitedQueue.length === 0);
     setRevealed(false);
-  }, [cardRepository, db, deckId, router, settingsRepository]);
+  }, [cardRepository, db, deckId, reviewLimit, router, settingsRepository]);
 
   useEffect(() => {
     void load();
