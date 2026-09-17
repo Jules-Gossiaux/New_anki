@@ -17,11 +17,18 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import java.util.concurrent.atomic.AtomicInteger
 
 class AndroidUsageReminderService : Service() {
+  private data class ForegroundSession(
+    val packageName: String,
+    val startedAt: Long,
+  )
+
   private val handler = Handler(Looper.getMainLooper())
   private var usageCheck: Runnable? = null
   private var screenReceiver: BroadcastReceiver? = null
+  private var notifiedUsageSessionStartedAt: Long? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -82,18 +89,20 @@ class AndroidUsageReminderService : Service() {
     val unlockedAt = System.currentTimeMillis()
     Log.i(TAG, "Phone unlocked: sending 3-card notification")
     preferences().edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockedAt).apply()
-    showReviewNotification(this, "Révision disponible", "3 cartes sont prêtes à être révisées.", 3)
+    showReviewNotification(this, "Révision disponible", "3 cartes sont prêtes à être révisées.")
     scheduleUsageCheck(unlockedAt)
   }
 
   private fun onScreenLocked() {
     Log.i(TAG, "Screen locked: cancelling usage check")
     preferences().edit().remove(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT).apply()
+    notifiedUsageSessionStartedAt = null
     cancelUsageCheck()
   }
 
   private fun scheduleUsageCheck(unlockedAt: Long) {
     cancelUsageCheck()
+    notifiedUsageSessionStartedAt = null
     val check = object : Runnable {
       override fun run() {
         if (!hasAvailableCards() || preferences().getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L) != unlockedAt) {
@@ -101,11 +110,20 @@ class AndroidUsageReminderService : Service() {
           cancelUsageCheck()
           return
         }
-        if (hasEligibleForegroundDuration(unlockedAt, System.currentTimeMillis())) {
-          Log.i(TAG, "Eligible usage threshold reached: sending 5-card notification")
-          showReviewNotification(this@AndroidUsageReminderService, "Révision après utilisation", "5 cartes sont prêtes à être révisées.", 5)
-          cancelUsageCheck()
-          return
+        val session = getEligibleForegroundSession(unlockedAt, System.currentTimeMillis())
+        if (session == null) {
+          notifiedUsageSessionStartedAt = null
+        } else if (
+          System.currentTimeMillis() - session.startedAt >= TEST_USAGE_DURATION_MS &&
+          notifiedUsageSessionStartedAt != session.startedAt
+        ) {
+          Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending 5-card notification")
+          showReviewNotification(
+            this@AndroidUsageReminderService,
+            "Révision après utilisation",
+            "5 cartes sont prêtes à être révisées.",
+          )
+          notifiedUsageSessionStartedAt = session.startedAt
         }
         handler.postDelayed(this, USAGE_CHECK_INTERVAL_MS)
       }
@@ -130,9 +148,12 @@ class AndroidUsageReminderService : Service() {
     Context.MODE_PRIVATE,
   )
 
-  private fun hasEligibleForegroundDuration(start: Long, end: Long): Boolean {
+  private fun getEligibleForegroundSession(start: Long, end: Long): ForegroundSession? {
     val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    val events = manager.queryEvents(start, end)
+    // ACTION_USER_PRESENT can arrive a fraction after Android has resumed the foreground
+    // activity. The small lookback retains that activity event without carrying a session
+    // across a screen lock: screen events below always clear the active session.
+    val events = manager.queryEvents(start - EVENT_LOOKBACK_MS, end)
     val event = UsageEvents.Event()
     var activePackage: String? = null
     var activeSince = 0L
@@ -146,17 +167,25 @@ class AndroidUsageReminderService : Service() {
             activePackage = event.packageName
           } else {
             activePackage = null
+            activeSince = 0L
           }
         }
         UsageEvents.Event.ACTIVITY_PAUSED,
         UsageEvents.Event.ACTIVITY_STOPPED -> {
-          if (event.packageName == activePackage) activePackage = null
+          if (event.packageName == activePackage) {
+            activePackage = null
+            activeSince = 0L
+          }
         }
-        UsageEvents.Event.SCREEN_NON_INTERACTIVE -> return false
+        UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+        UsageEvents.Event.SCREEN_INTERACTIVE -> {
+          activePackage = null
+          activeSince = 0L
+        }
       }
     }
 
-    return activePackage != null && end - activeSince >= TEST_USAGE_DURATION_MS
+    return activePackage?.let { ForegroundSession(it, activeSince) }
   }
 
   private fun isEligiblePackage(packageName: String?): Boolean {
@@ -169,13 +198,14 @@ class AndroidUsageReminderService : Service() {
     private const val REMINDER_CHANNEL_ID = "review-reminders"
     private const val SERVICE_CHANNEL_ID = "usage-reminder-service"
     private const val SERVICE_NOTIFICATION_ID = 502
-    private const val TEST_NOTIFICATION_ID = 504
     private const val USAGE_CHECK_INTERVAL_MS = 1_000L
     private const val TEST_USAGE_DURATION_MS = 10_000L
+    private const val EVENT_LOOKBACK_MS = 2_000L
     private const val TAG = "AndroidUsageReminder"
+    private val nextReviewNotificationId = AtomicInteger(1_000)
 
     fun sendTestNotification(context: Context) {
-      showReviewNotification(context, "Notification de test", "Les notifications Android fonctionnent.", TEST_NOTIFICATION_ID)
+      showReviewNotification(context, "Notification de test", "Les notifications Android fonctionnent.")
     }
 
     private fun createNotificationChannel(context: Context) {
@@ -198,12 +228,13 @@ class AndroidUsageReminderService : Service() {
         .build()
     }
 
-    private fun showReviewNotification(context: Context, title: String, message: String, id: Int) {
+    private fun showReviewNotification(context: Context, title: String, message: String) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
       ) return
       createNotificationChannel(context)
       val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+      val id = nextReviewNotificationId.incrementAndGet()
       val contentIntent = PendingIntent.getActivity(
         context,
         id,

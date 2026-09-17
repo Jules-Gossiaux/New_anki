@@ -6,6 +6,7 @@
 - Documented Phase B's two phone-use review intervention intents and the required Android/iOS feasibility investigation before implementation.
 - Reworked the Android reminder feasibility prototype to use an opt-in foreground service for unlock and ten-second phone-use notifications; automatic study-screen launches remain disabled.
 - Refreshed the Android reminder card snapshot when returning to the diagnostic screen and added targeted native reminder logs for device diagnosis.
+- Made Android reminder notifications distinct for every unlock and for each new eligible foreground-app session; returning to a recent app now restarts its ten-second test timer.
 
 ### Added
 
