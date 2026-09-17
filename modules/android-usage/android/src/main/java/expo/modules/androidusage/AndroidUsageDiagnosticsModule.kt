@@ -28,11 +28,26 @@ class AndroidUsageDiagnosticsModule : Module() {
     Function("getRecentEvents") { windowMs: Double ->
       getRecentEvents(windowMs.toLong())
     }
+
+    Function("isReminderEnabled") {
+      reminderPreferences().getBoolean(KEY_ENABLED, false)
+    }
+
+    Function("setReminderConfiguration") { enabled: Boolean, dueCardCount: Double ->
+      require(dueCardCount >= 0) { "dueCardCount must not be negative" }
+      reminderPreferences().edit()
+        .putBoolean(KEY_ENABLED, enabled)
+        .putInt(KEY_DUE_CARD_COUNT, dueCardCount.toInt())
+        .apply()
+    }
   }
 
   private fun requireContext(): Context {
     return requireNotNull(appContext.reactContext) { "Android context unavailable" }
   }
+
+  private fun reminderPreferences() =
+    requireContext().getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
   private fun hasUsageAccess(): Boolean {
     val context = requireContext()
@@ -82,5 +97,14 @@ class AndroidUsageDiagnosticsModule : Module() {
       UsageEvents.Event.CONFIGURATION_CHANGE -> "CONFIGURATION_CHANGE"
       else -> "TYPE_$type"
     }
+  }
+
+  companion object {
+    const val PREFERENCES_NAME = "android_usage_reminders"
+    const val KEY_ENABLED = "enabled"
+    const val KEY_DUE_CARD_COUNT = "due_card_count"
+    const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
+    const val ACTION_SEQUENCE_CHECK = "expo.modules.androidusage.ACTION_SEQUENCE_CHECK"
+    const val SEQUENCE_DURATION_MS = 3 * 60 * 1000L
   }
 }

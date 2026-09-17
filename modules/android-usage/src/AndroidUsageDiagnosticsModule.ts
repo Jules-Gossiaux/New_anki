@@ -7,6 +7,8 @@ declare class AndroidUsageDiagnosticsModule extends NativeModule<AndroidUsageDia
   hasUsageAccess(): boolean;
   openUsageAccessSettings(): void;
   getRecentEvents(windowMs: number): AndroidUsageEvent[];
+  isReminderEnabled(): boolean;
+  setReminderConfiguration(enabled: boolean, dueCardCount: number): void;
 }
 
 export default requireOptionalNativeModule<AndroidUsageDiagnosticsModule>(

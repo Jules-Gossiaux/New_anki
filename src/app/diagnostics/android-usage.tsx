@@ -1,14 +1,30 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import AndroidUsageDiagnostics, { type AndroidUsageEvent } from '../../../modules/android-usage';
+import { CardRepository } from '../../infrastructure/repositories/cardRepository';
+import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
 
 const EVENT_WINDOW_MS = 10 * 60 * 1000;
 
 export default function AndroidUsageDiagnosticsScreen() {
   const router = useRouter();
+  const db = useSQLiteContext();
+  const deckRepository = useMemo(() => new DeckRepository(db), [db]);
+  const cardRepository = useMemo(() => new CardRepository(db), [db]);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [events, setEvents] = useState<AndroidUsageEvent[]>([]);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [isConfiguring, setConfiguring] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -21,6 +37,7 @@ export default function AndroidUsageDiagnosticsScreen() {
       const access = AndroidUsageDiagnostics.hasUsageAccess();
       setHasAccess(access);
       setEvents(access ? AndroidUsageDiagnostics.getRecentEvents(EVENT_WINDOW_MS) : []);
+      setRemindersEnabled(AndroidUsageDiagnostics.isReminderEnabled());
       setError(null);
     } catch (diagnosticError) {
       setError(
@@ -28,6 +45,44 @@ export default function AndroidUsageDiagnosticsScreen() {
       );
     }
   }, []);
+
+  const configureReminders = async () => {
+    if (!AndroidUsageDiagnostics || !hasAccess || isConfiguring) return;
+    setConfiguring(true);
+    try {
+      const permission = await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS');
+      if (permission !== PermissionsAndroid.RESULTS.GRANTED) {
+        throw new Error('Les notifications Android sont nécessaires pour activer les rappels.');
+      }
+      const decks = await deckRepository.listAll();
+      const counts = await Promise.all(
+        decks.map((deck) => cardRepository.getStudyCounts(deck.id, new Date())),
+      );
+      const dueCardCount = counts.reduce((total, count) => total + count.new + count.today, 0);
+      AndroidUsageDiagnostics.setReminderConfiguration(true, dueCardCount);
+      setRemindersEnabled(true);
+      setError(
+        dueCardCount > 0
+          ? `Rappels activés pour ${dueCardCount} carte${dueCardCount === 1 ? '' : 's'}.`
+          : 'Aucune carte disponible : aucune notification ne sera envoyée.',
+      );
+    } catch (configurationError) {
+      setError(
+        configurationError instanceof Error
+          ? configurationError.message
+          : 'Activation des rappels impossible.',
+      );
+    } finally {
+      setConfiguring(false);
+    }
+  };
+
+  const disableReminders = () => {
+    if (!AndroidUsageDiagnostics) return;
+    AndroidUsageDiagnostics.setReminderConfiguration(false, 0);
+    setRemindersEnabled(false);
+    setError('Rappels Android désactivés.');
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -48,8 +103,8 @@ export default function AndroidUsageDiagnosticsScreen() {
       </View>
 
       <Text style={styles.intro}>
-        Cet écran mesure uniquement les capacités Android. Il ne déclenche aucune révision,
-        notification ou modification FSRS.
+        Cet écran mesure les capacités Android. Les rappels restent désactivés par défaut et
+        n’ouvrent jamais l’application par-dessus une autre application.
       </Text>
 
       <View style={styles.card}>
@@ -64,6 +119,30 @@ export default function AndroidUsageDiagnosticsScreen() {
             disabled={!AndroidUsageDiagnostics}
           >
             <Text style={styles.primaryButtonText}>Ouvrir les réglages Android</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Rappels Android expérimentaux</Text>
+        <Text style={styles.muted}>
+          Après un déverrouillage, une notification peut proposer 3 cartes. Après 3 minutes
+          continues dans une autre application, elle peut en proposer 5. Le compteur est mémorisé au
+          moment de l’activation et doit être réactualisé après une session d’étude.
+        </Text>
+        {remindersEnabled ? (
+          <Pressable style={styles.secondaryButton} onPress={disableReminders}>
+            <Text style={styles.secondaryButtonText}>Désactiver les rappels</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => void configureReminders()}
+            disabled={isConfiguring || !hasAccess}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isConfiguring ? 'Activation…' : 'Activer les rappels expérimentaux'}
+            </Text>
           </Pressable>
         )}
       </View>

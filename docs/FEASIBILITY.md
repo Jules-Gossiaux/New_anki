@@ -29,7 +29,9 @@ The Android spike must answer these questions on a real device:
 - What happens after reboot, battery optimization, OEM restrictions and revoked Usage Access?
 - Can the user grant, revoke and understand the permission without exposing vocabulary or review data?
 
-The first prototype should use a development build, a narrow allowlist of selected applications, continuous usage, reset-on-lock semantics and a notification that opens the existing study screen. It must not implement an accessibility-service overlay or a forced full-screen intervention.
+The first prototype uses a development build, continuous usage, reset-on-lock semantics and a notification that opens the application home screen. It excludes the Vocabulary app, Android system packages and the launcher from the three-minute measurement. A future product setting may replace this broad initial rule with an explicit application allowlist. It does not implement an accessibility-service overlay or a forced full-screen intervention.
+
+The experimental reminder flow is now implemented behind an explicit action on the diagnostic screen. When enabled, it stores a snapshot of the current number of new and today-review cards in Android `SharedPreferences`. A manifest receiver handles `USER_PRESENT` and sends a 3-card notification. It schedules a non-exact alarm three minutes later; if the usage history shows three minutes of eligible foreground activity without a lock, it sends a 5-card notification. Notifications are skipped when the snapshot is zero or notification permission is denied. The snapshot is deliberately refreshed by the user and is not a second source of truth for the SQLite database.
 
 ### iOS (deferred)
 
@@ -37,7 +39,7 @@ UIKit exposes protected-data availability changes (lock/unlock-related lifecycle
 
 ### Product implication
 
-The safest first experiment is local due-card notifications and an in-app review prompt. Android usage-based reminders are a possible opt-in track after a native spike. iOS should investigate Device Activity authorization and an extension-based threshold, with a fallback to scheduled notifications. “Three reviews after unlock” and “five after three minutes” remain product intents, not cross-platform implementation promises.
+The safest first experiment is an opt-in Android notification that opens the application home screen. The current implementation is a feasibility prototype, not yet a finished review flow: it does not select a deck, open a study session directly, or decrement the stored snapshot after a notification. iOS should investigate Device Activity authorization and an extension-based threshold, with a fallback to scheduled notifications. “Three reviews after unlock” and “five after three minutes” remain product intents, not cross-platform implementation promises.
 
 ## Evidence
 
@@ -60,10 +62,10 @@ The data-observation part is feasible on the tested Android device. The product 
 ## Next actions
 
 1. Install/configure Android SDK Platform-Tools and verify `adb devices` with the test phone.
-2. Add the smallest development-build setup required for native Android experimentation; do not add Usage Access or background services before the API boundary is selected.
-3. Build a read-only diagnostic prototype that reports permission state and recent usage events locally, without vocabulary content or automatic interventions.
-4. Measure the event sequence, lock/reset behavior and background reliability on the real device.
-5. Decide whether the first shippable slice is an Android notification prompt, an in-app prompt on resume, or a documented limitation.
+2. Enable the experimental reminders from the diagnostic screen and verify notification permission behavior.
+3. Measure unlock notification delivery while Vocabulary is backgrounded and force-closed.
+4. Measure the three-minute alarm after using an eligible application, after locking early, after reboot and under battery restrictions.
+5. Decide whether the first shippable slice can use this notification adapter or must fall back to an in-app prompt on resume.
 
 ## Manual validation procedure
 
@@ -73,5 +75,9 @@ The data-observation part is feasible on the tested Android device. The product 
 4. Open the Android Usage Access settings from the diagnostic screen and grant access to Vocabulary.
 5. Return to the app, press `Actualiser`, then use and lock the phone several times. Check whether screen/keyguard and foreground-application events appear with plausible timestamps.
 6. Repeat with the app backgrounded and after revoking access. Record whether events stop, are delayed, or disappear.
+7. With cards available, press `Activer les rappels expérimentaux` and grant notification permission.
+8. Background or force-close Vocabulary, unlock the phone, and check whether the 3-card notification arrives.
+9. Unlock again and use an eligible third-party application continuously for at least three minutes. Check whether the 5-card notification arrives, then repeat while locking before three minutes.
+10. Reopen the diagnostic screen and refresh the snapshot after studying cards. Confirm that disabling reminders stops later notifications.
 
-This procedure is intentionally diagnostic. It does not yet establish that an unlock can trigger an immediate review flow or that a three-minute threshold can be delivered while the app is closed.
+This procedure is intentionally diagnostic. The notification timing may be delayed because the alarm is deliberately non-exact, and OEM battery policies may suppress background work. A successful result still does not justify a forced overlay or a claim of cross-platform support.
