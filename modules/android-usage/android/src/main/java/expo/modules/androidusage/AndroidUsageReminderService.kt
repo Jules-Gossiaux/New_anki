@@ -171,10 +171,31 @@ class AndroidUsageReminderService : Service() {
   )
 
   private fun promptForReviews(limit: Int, title: String, message: String) {
-    if (preferences().getBoolean(AndroidUsageDiagnosticsModule.KEY_DIRECT_PROMPT, false) &&
-      openStudyScreen(limit)
-    ) return
+    val directMode = preferences().getBoolean(AndroidUsageDiagnosticsModule.KEY_DIRECT_PROMPT, false)
+    val appInForeground = isApplicationInForeground()
+    Log.i(TAG, "Review prompt: limit=$limit directMode=$directMode appInForeground=$appInForeground")
+    if (directMode && appInForeground && openStudyScreen(limit)) return
     showReviewNotification(this, title, message, limit)
+  }
+
+  private fun isApplicationInForeground(): Boolean {
+    val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    val now = System.currentTimeMillis()
+    val events = manager.queryEvents(now - EVENT_LOOKBACK_MS, now)
+    val event = UsageEvents.Event()
+    var foreground = false
+    while (events.hasNextEvent()) {
+      events.getNextEvent(event)
+      when (event.eventType) {
+        UsageEvents.Event.ACTIVITY_RESUMED -> foreground = event.packageName == packageName
+        UsageEvents.Event.ACTIVITY_PAUSED,
+        UsageEvents.Event.ACTIVITY_STOPPED -> {
+          if (event.packageName == packageName) foreground = false
+        }
+        UsageEvents.Event.SCREEN_NON_INTERACTIVE -> foreground = false
+      }
+    }
+    return foreground
   }
 
   private fun openStudyScreen(limit: Int): Boolean {
@@ -271,9 +292,16 @@ class AndroidUsageReminderService : Service() {
     private fun showReviewNotification(context: Context, title: String, message: String, limit: Int?) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
-      ) return
+      ) {
+        Log.w(TAG, "Review notification skipped: POST_NOTIFICATIONS is not granted")
+        return
+      }
       createNotificationChannel(context)
-      val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+      val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+      if (launchIntent == null) {
+        Log.e(TAG, "Review notification skipped: launch intent is unavailable")
+        return
+      }
       val id = nextReviewNotificationId.incrementAndGet()
       if (limit != null) {
         launchIntent.data = Uri.parse("vocabulary://study/intervention?limit=$limit")
@@ -293,6 +321,7 @@ class AndroidUsageReminderService : Service() {
         .build()
       val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       manager.notify(id, notification)
+      Log.i(TAG, "Review notification posted: id=$id limit=$limit")
     }
 
     private fun notificationBuilder(context: Context, channelId: String): Notification.Builder {

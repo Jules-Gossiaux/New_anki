@@ -15,6 +15,13 @@ class AndroidUsageDiagnosticsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AndroidUsageDiagnostics")
 
+    OnCreate {
+      if (reminderPreferences().getBoolean(KEY_ENABLED, false)) {
+        Log.i(TAG, "Restoring enabled reminder service after app startup")
+        startReminderService()
+      }
+    }
+
     Function("hasUsageAccess") {
       hasUsageAccess()
     }
