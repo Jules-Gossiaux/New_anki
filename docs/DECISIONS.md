@@ -37,3 +37,7 @@ The card editor lets the user choose `both`, `forward` (`Mot → traduction`) or
 Import locally from `.apkg`, preserving supported source cards and progress as faithfully as possible. Repeated imports must avoid duplicates. Confirmed replacement makes imported content and valid scheduling authoritative while preserving append-only local review history. Supplementary fields retain their labels in extra information. Reuse decks by full path, explicitly report unsupported templates, and import otherwise valid cards even when a media file fails, with a visible per-card missing-media notice. Export remains deferred.
 
 The [import contract](ANKI_IMPORT.md) records the supported text-card slice and remaining compatibility investigations. Exact FSRS transfer and legacy scheduling conversion are only supported where the source state is interpretable; no automatic reset of imported progress or improvised scheduler conversion is authorized. Media and complex template support remain explicitly deferred.
+
+## ADR-0010 - Recursive soft deletion of decks (accepted)
+
+Deleting a deck marks the selected deck, all descendant decks and all cards assigned to that subtree as deleted in one SQLite transaction. The operation is allowed regardless of contents. Notes and append-only review logs are preserved because notes may be shared by direction cards and review history must remain recoverable.

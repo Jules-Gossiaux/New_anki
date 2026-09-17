@@ -17,6 +17,8 @@ On 2026-09-14, the current Phase A foundation was manually validated on Android.
 
 On 2026-09-15, card management was manually validated on Android. Card creation, persistence after relaunch, confirmed deletion and scrolling through a deck containing more cards than fit on screen behaved correctly.
 
+On 2026-09-17, recursive deck deletion was manually validated on Android. A populated parent deck with nested sub-decks and cards could be deleted from the deck editor; the full deck subtree and its cards disappeared from the active views, while the operation remained compatible with the existing soft-delete and history-preservation model.
+
 On 2026-09-16, the card editor was manually revalidated on Android after the modal layout fix. The editor opens without a visible transition glitch, keeps its fields inside one bounded scrollable panel, preserves keyboard scrolling, and refreshes note/tag content after saving without returning to the home screen.
 
 The template direction flow was also manually validated on Android: a new note defaults to both directions, forward-only and reverse-only each create one studyable card, switching to both preserves the existing direction's FSRS state while initializing only the newly added direction, and removing a direction leaves its review history preserved.

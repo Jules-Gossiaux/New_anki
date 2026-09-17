@@ -18,7 +18,7 @@ Accessible mobile study UX, restrained motion, progress and review friction redu
 
 ## Phase A completion audit
 
-Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks, bidirectional note/card creation, editing and deletion, pinned FSRS scheduling per direction, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, consistent blue/new, red/today and green/future card categories, and supported text-card `.apkg` import with preserved imported history and scheduling state.
+Implemented in the current slice: SQLite schema and migrations, repositories and transactional writes, nested decks with recursive soft deletion, bidirectional note/card creation, editing and deletion, pinned FSRS scheduling per direction, append-only review history, study queues across sub-decks, due-time previews, same-day early review, refreshed counters, consistent blue/new, red/today and green/future card categories, and supported text-card `.apkg` import with preserved imported history and scheduling state.
 
 Phase A is complete for the accepted MVP scope. The explicit limitations are image/audio media import, complex Anki templates, `.apkg` export and broader compatibility validation. Editing preserves review history and resets both direction cards' current FSRS state only when the normalized front or back changes. iOS device validation is deliberately outside the current MVP acceptance criteria.
 

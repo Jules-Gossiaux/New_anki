@@ -9,6 +9,7 @@
 - Added the first local Anki `.apkg` import slice: ZIP/classic and modern Zstandard collection reading, preview before confirmation, hierarchical decks, Quizlet extended notes, tags, both directions, interpretable FSRS state and isolated imported review events.
 - Added a numbered import-provenance migration and explicit reporting for unsupported templates and packages already imported.
 - Converted Anki review due values relative to `col.crt` into Vocabulary calendar days and displayed imported day-based échéances in the card editor.
+- Deck deletion now recursively soft-deletes the selected deck, its sub-decks and their cards in one transaction, while preserving notes and review history; the confirmation explains this cascade.
 - Preserved existing direction-card FSRS state when changing the selected study directions; only newly enabled directions start with a fresh state.
 - Added card-editor direction choices: both directions, forward only, or reverse only, with independent FSRS cards.
 - Made the card editor open immediately and keep all fields inside one bounded, scrollable modal panel.
@@ -60,6 +61,6 @@
 
 ### Known limitations
 
-- Full note editing, CSV/Anki import-export and `.apkg` compatibility remain incomplete.
+- Complex Anki templates, media import, `.apkg` export and CSV convenience import/export remain incomplete.
 - Native iOS SQLite integration still requires device/development-build validation.
 - The Expo scaffold reports npm audit warnings that must be reviewed before release; no automatic force-fix was applied.
