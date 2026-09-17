@@ -8,6 +8,8 @@ This investigation is Android-first. iOS is intentionally deferred and no iOS im
 
 The repository currently has no generated `android/` or `ios/` project and the Expo configuration only uses the existing Expo Router and SQLite plugins. Java 17 is available in the current environment, but Android `adb` is not currently available on the PATH. A real-device spike therefore requires installing/configuring the Android SDK Platform-Tools, enabling USB debugging on the test device, and creating an Expo development build before native APIs can be tested. Expo Go remains suitable for the existing JavaScript-only app but cannot validate this capability.
 
+On 2026-09-17, the connected OnePlus NE2213 running Android 16 (API 36) was detected by `adb`, and the first Expo development build compiled and installed successfully after configuring a user-local JDK 17. The build currently validates only the native runtime; Usage Access is not yet requested or read.
+
 ## Findings (September 2026)
 
 ### Android
