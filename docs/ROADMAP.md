@@ -21,6 +21,8 @@ Phase B is primarily focused on two product intents:
 
 These are product goals, not yet implementation promises. Work starts with an Android-only feasibility spike; iOS is intentionally deferred. The spike must validate Android capabilities, the Usage Access permission, Expo/development-build requirements, background behavior, battery impact, privacy and Google Play policy constraints. The implementation may need to use notifications or another supported mechanism instead of intercepting unlocks or displaying an unrestricted overlay. The behavior must also define due-card exhaustion, completed daily reviews, opt-out/configuration and eligible-app selection.
 
+Current status: the Android development-build diagnostic and an opt-in notification prototype exist on `feat/phase-b-android-feasibility`. The prototype handles `USER_PRESENT`, schedules a non-exact three-minute usage check, and opens the application home screen from notifications. It is not yet accepted as production behavior; background delivery, force-stop, battery restrictions and the card-snapshot policy still require real-device validation.
+
 The existing study engine remains the only scheduling engine. Any intervention must launch or offer the existing review flow and must not create a separate FSRS path.
 
 ## Phase A completion audit
