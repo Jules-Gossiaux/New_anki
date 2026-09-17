@@ -12,9 +12,16 @@ Schema/migrations, repositories, nested decks, notes/cards, validation, global r
 
 The supported import slice is implemented and documented in [ANKI_IMPORT.md](ANKI_IMPORT.md) and ADR-0009. Future work is limited to broader Anki compatibility: media import, more complex template types, stronger repeat-import/replacement coverage, export, and additional real-device fixtures. Preserving progress remains required; FSRS compatibility and legacy-state conversion must continue to be validated per source format.
 
-## Phase B — first product innovations
+## Phase B — phone-use review interventions (investigation first)
 
-Accessible mobile study UX, restrained motion, progress and review friction reduction. Build a native capability spike for notifications, Android usage access and iOS Device Activity before selecting an intervention product shape.
+Phase B is primarily focused on two product intents:
+
+1. After an eligible phone unlock, prompt the user to complete three vocabulary reviews.
+2. After each eligible three-minute phone-use sequence, prompt the user to complete five vocabulary reviews.
+
+These are product goals, not yet cross-platform implementation promises. Before coding, investigate Android and iOS capabilities, required permissions and entitlements, Expo/development-build requirements, background behavior, battery impact, privacy and store policies. The implementation may need to use notifications, widgets, extensions or another supported mechanism instead of intercepting unlocks or displaying an unrestricted overlay. The behavior must also define due-card exhaustion, completed daily reviews, opt-out/configuration and eligible-app selection.
+
+The existing study engine remains the only scheduling engine. Any intervention must launch or offer the existing review flow and must not create a separate FSRS path.
 
 ## Phase A completion audit
 
@@ -28,4 +35,4 @@ Contextual phrases, fill-in-the-blank and challenges using the same learning eng
 
 ## Feasibility gates
 
-Unlock and three-minute usage interventions must demonstrate platform behavior, permissions, background delivery, battery impact and store-policy acceptability on real devices. No cross-platform guarantee is made before that evidence exists.
+Unlock and three-minute usage interventions must demonstrate platform behavior, permissions, background delivery, battery impact, privacy implications and store-policy acceptability on real devices. No cross-platform guarantee is made before that evidence exists. See [FEASIBILITY.md](FEASIBILITY.md) for the current platform investigation.

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added an explicit in-app modal and cancellation for Anki packages containing media. Image/audio media import remains deferred.
+- Documented Phase B's two phone-use review intervention intents and the required Android/iOS feasibility investigation before implementation.
 
 ### Added
 

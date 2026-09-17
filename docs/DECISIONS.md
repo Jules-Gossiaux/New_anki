@@ -41,3 +41,9 @@ The [import contract](ANKI_IMPORT.md) records the supported text-card slice and 
 ## ADR-0010 - Recursive soft deletion of decks (accepted)
 
 Deleting a deck marks the selected deck, all descendant decks and all cards assigned to that subtree as deleted in one SQLite transaction. The operation is allowed regardless of contents. Notes and append-only review logs are preserved because notes may be shared by direction cards and review history must remain recoverable.
+
+## ADR-0011 - Phase B phone-use review interventions (product intent; feasibility pending)
+
+The product vision includes two interventions: prompt three vocabulary reviews after an eligible phone unlock, and prompt five reviews after each eligible three-minute phone-use sequence. These are product intents, not authorization to assume unrestricted unlock interception, background execution or cross-platform support. A feasibility investigation must validate Android and iOS APIs, permissions, entitlements, Expo/development-build requirements, background behavior, privacy and store policies before implementation.
+
+The final mechanism may be a notification, widget, extension or another supported flow rather than an overlay. It must reuse the existing study engine, respect due-card availability and daily limits, provide opt-out/configuration, and explicitly handle sessions with no available cards. Eligible applications, continuous versus cumulative usage and lock/reset semantics remain investigation questions.
