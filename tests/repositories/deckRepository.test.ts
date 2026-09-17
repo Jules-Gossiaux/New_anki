@@ -41,18 +41,55 @@ describe('DeckRepository', () => {
     expect(db.runAsync).not.toHaveBeenCalled();
   });
 
-  it('does not delete a deck that still has children or cards', async () => {
+  it('soft-deletes a deck, all descendants and their cards in one transaction', async () => {
+    const execAsync = jest.fn();
+    const runAsync = jest
+      .fn()
+      .mockResolvedValueOnce({ changes: 2, lastInsertRowId: 0 })
+      .mockResolvedValueOnce({ changes: 3, lastInsertRowId: 0 });
     const db: DatabaseClient = {
-      execAsync: jest.fn(),
-      runAsync: jest.fn(),
+      execAsync,
+      runAsync,
       getAllAsync: jest.fn(),
-      getFirstAsync: jest
-        .fn()
-        .mockResolvedValueOnce({ count: 1 })
-        .mockResolvedValueOnce({ count: 0 }),
+      getFirstAsync: jest.fn(),
     };
 
-    await expect(new DeckRepository(db).remove('deck-id')).rejects.toThrow('must be empty');
-    expect(db.runAsync).not.toHaveBeenCalled();
+    await new DeckRepository(db).remove('deck-id');
+
+    expect(execAsync).toHaveBeenNthCalledWith(1, 'BEGIN IMMEDIATE;');
+    expect(runAsync).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('UPDATE cards'),
+      'deck-id',
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(runAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('UPDATE decks'),
+      'deck-id',
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(execAsync).toHaveBeenNthCalledWith(2, 'COMMIT;');
+    expect(execAsync).not.toHaveBeenCalledWith('ROLLBACK;');
+  });
+
+  it('rolls back the cascade when deck deletion fails', async () => {
+    const execAsync = jest.fn();
+    const db: DatabaseClient = {
+      execAsync,
+      runAsync: jest
+        .fn()
+        .mockResolvedValueOnce({ changes: 2, lastInsertRowId: 0 })
+        .mockResolvedValueOnce({ changes: 0, lastInsertRowId: 0 }),
+      getAllAsync: jest.fn(),
+      getFirstAsync: jest.fn(),
+    };
+
+    await expect(new DeckRepository(db).remove('deck-id')).rejects.toThrow('does not exist');
+    expect(execAsync).toHaveBeenNthCalledWith(1, 'BEGIN IMMEDIATE;');
+    expect(execAsync).toHaveBeenNthCalledWith(2, 'ROLLBACK;');
+    expect(execAsync).not.toHaveBeenCalledWith('COMMIT;');
   });
 });

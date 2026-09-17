@@ -4,7 +4,7 @@ Vocabulary is a mobile-first vocabulary learning app aiming to combine Anki's te
 
 ## Status
 
-Phase A is in progress. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, global revision settings, FSRS scheduling, review history and the first study/review flow are in place. Decks, notes, bidirectional cards and normalized tags can be created, edited, persisted, displayed and deleted through the current management flows. The remaining Phase A work includes staged import/export and broader compatibility validation.
+The Phase A MVP is complete for the supported text-card scope. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, global revision settings, FSRS scheduling, review history, study/review flow, deck/card management, bidirectional cards, normalized tags and local text-card Anki import are in place. Android is the current validation platform; iOS validation and broader compatibility work remain outside the MVP acceptance criteria.
 
 ## Quick start
 
@@ -34,4 +34,10 @@ Read [AGENTS.md](AGENTS.md) before coding. The architecture and staged plan are 
 
 ## Important limitations
 
-Full Anki `.apkg` import/export is not implemented yet. CSV convenience import/export is not available either, so no Anki compatibility claim is made. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.
+Full Anki compatibility is not claimed. The supported import slice reads text-card `.apkg` collections and preserves supported scheduling/history data, but complex templates and media are not supported. `.apkg` export and CSV convenience import/export are not available. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.
+
+## Import Anki
+
+L’écran d’accueil propose un import local de paquets `.apkg`. Les collections classiques et modernes sont lues avant confirmation, puis les decks hiérarchiques, notes, tags, cartes directes/inversées et les états FSRS interprétables sont importés dans une transaction. Les événements d’historique importés sont conservés séparément afin de ne pas fausser les compteurs de révision.
+
+Les templates complexes, images et audio ne sont pas pris en charge. L’import est interrompu avec une modale explicite lorsqu’un paquet contient des médias. L’export Anki n’est pas encore disponible.

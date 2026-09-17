@@ -1,6 +1,6 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import DecksScreen from '../../src/app/index';
+import DecksScreen, { UnsupportedMediaDialog } from '../../src/app/index';
 
 jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(),
@@ -28,5 +28,17 @@ describe('decks screen', () => {
       expect(screen.getByText('Creer mon premier deck')).toBeTruthy();
       expect(screen.getByLabelText('Ouvrir les reglages')).toBeTruthy();
     });
+  });
+
+  it('renders a visible modal for unsupported media', () => {
+    const onClose = jest.fn();
+    const screen = render(
+      <UnsupportedMediaDialog message="Les médias ne sont pas pris en charge." onClose={onClose} />,
+    );
+
+    expect(screen.getByText('Import non disponible')).toBeTruthy();
+    expect(screen.getByText('Les médias ne sont pas pris en charge.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Fermer l’alerte média'));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
