@@ -10,7 +10,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 
 class AndroidUsageReminderReceiver : BroadcastReceiver() {
@@ -32,7 +31,6 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     val unlockAt = System.currentTimeMillis()
     preferences.edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockAt).apply()
     showNotification(context, "Révision disponible", "3 cartes sont prêtes à être révisées.", 3)
-    openStudyScreen(context, preferences, 3)
 
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     val intent = Intent(context, AndroidUsageReminderReceiver::class.java)
@@ -56,7 +54,6 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     val now = System.currentTimeMillis()
     if (hasEligibleUsageDuration(context, unlockAt, now)) {
       showNotification(context, "Révision après utilisation", "5 cartes sont prêtes à être révisées.", 5)
-      openStudyScreen(context, preferences, 5)
     }
   }
 
@@ -98,18 +95,6 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
     return !packageName.startsWith("android") && !packageName.startsWith("com.android.")
   }
 
-  private fun openStudyScreen(
-    context: Context,
-    preferences: android.content.SharedPreferences,
-    reviewLimit: Int,
-  ) {
-    val deckId = preferences.getString(AndroidUsageDiagnosticsModule.KEY_STUDY_DECK_ID, "") ?: ""
-    if (deckId.isBlank()) return
-    val intent = createStudyIntent(context, deckId, reviewLimit)
-      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-    runCatching { context.startActivity(intent) }
-  }
-
   private fun showNotification(context: Context, title: String, message: String, id: Int) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
       context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
@@ -122,16 +107,7 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
       )
     }
 
-    val preferences = context.getSharedPreferences(
-      AndroidUsageDiagnosticsModule.PREFERENCES_NAME,
-      Context.MODE_PRIVATE,
-    )
-    val deckId = preferences.getString(AndroidUsageDiagnosticsModule.KEY_STUDY_DECK_ID, "") ?: ""
-    val launchIntent = if (deckId.isBlank()) {
-      context.packageManager.getLaunchIntentForPackage(context.packageName)
-    } else {
-      createStudyIntent(context, deckId, if (id == 3) 3 else 5)
-    } ?: return
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
     val contentIntent = PendingIntent.getActivity(
       context,
       id,
@@ -150,13 +126,6 @@ class AndroidUsageReminderReceiver : BroadcastReceiver() {
       .setAutoCancel(true)
       .build()
     notificationManager.notify(id, notification)
-  }
-
-  private fun createStudyIntent(context: Context, deckId: String, reviewLimit: Int): Intent {
-    return Intent(
-      Intent.ACTION_VIEW,
-      Uri.parse("vocabulary:///study/${Uri.encode(deckId)}?reviewLimit=$reviewLimit"),
-    ).setPackage(context.packageName)
   }
 
   companion object {

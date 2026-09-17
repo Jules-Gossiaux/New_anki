@@ -59,12 +59,7 @@ export default function AndroidUsageDiagnosticsScreen() {
         decks.map((deck) => cardRepository.getStudyCounts(deck.id, new Date())),
       );
       const dueCardCount = counts.reduce((total, count) => total + count.new + count.today, 0);
-      const targetDeck = decks[counts.findIndex((count) => count.new + count.today > 0)];
-      if (!targetDeck) {
-        AndroidUsageDiagnostics.setReminderConfiguration(true, 0, '');
-      } else {
-        AndroidUsageDiagnostics.setReminderConfiguration(true, dueCardCount, targetDeck.id);
-      }
+      AndroidUsageDiagnostics.setReminderConfiguration(true, dueCardCount);
       setRemindersEnabled(true);
       setError(
         dueCardCount > 0
@@ -84,7 +79,7 @@ export default function AndroidUsageDiagnosticsScreen() {
 
   const disableReminders = () => {
     if (!AndroidUsageDiagnostics) return;
-    AndroidUsageDiagnostics.setReminderConfiguration(false, 0, '');
+    AndroidUsageDiagnostics.setReminderConfiguration(false, 0);
     setRemindersEnabled(false);
     setError('Rappels Android désactivés.');
   };
@@ -131,10 +126,10 @@ export default function AndroidUsageDiagnosticsScreen() {
       <View style={styles.card}>
         <Text style={styles.label}>Rappels Android expérimentaux</Text>
         <Text style={styles.muted}>
-          En mode test, le déverrouillage ouvre une session de 3 cartes et 10 secondes continues
-          dans une autre application peuvent ouvrir une session de 5 cartes. Le comportement cible
-          est de 3 minutes. Le compteur est mémorisé au moment de l’activation et doit être
-          réactualisé après une session d’étude.
+          En mode test, le déverrouillage envoie une notification pour 3 cartes et 10 secondes
+          continues dans une autre application peuvent envoyer une notification pour 5 cartes. Le
+          comportement cible est de 3 minutes. Le compteur est mémorisé au moment de l’activation et
+          doit être réactualisé après une session d’étude.
         </Text>
         {remindersEnabled ? (
           <Pressable style={styles.secondaryButton} onPress={disableReminders}>

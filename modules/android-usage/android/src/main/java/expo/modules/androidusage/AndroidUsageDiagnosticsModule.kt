@@ -3,7 +3,9 @@ package expo.modules.androidusage
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.IntentFilter
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -11,6 +13,8 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class AndroidUsageDiagnosticsModule : Module() {
+  private var unlockReceiver: BroadcastReceiver? = null
+
   override fun definition() = ModuleDefinition {
     Name("AndroidUsageDiagnostics")
 
@@ -33,13 +37,13 @@ class AndroidUsageDiagnosticsModule : Module() {
       reminderPreferences().getBoolean(KEY_ENABLED, false)
     }
 
-    Function("setReminderConfiguration") { enabled: Boolean, dueCardCount: Double, studyDeckId: String ->
+    Function("setReminderConfiguration") { enabled: Boolean, dueCardCount: Double ->
       require(dueCardCount >= 0) { "dueCardCount must not be negative" }
       reminderPreferences().edit()
         .putBoolean(KEY_ENABLED, enabled)
         .putInt(KEY_DUE_CARD_COUNT, dueCardCount.toInt())
-        .putString(KEY_STUDY_DECK_ID, studyDeckId)
         .apply()
+      if (enabled) registerUnlockReceiver() else unregisterUnlockReceiver()
     }
 
     Function("sendTestNotification") {
@@ -53,6 +57,25 @@ class AndroidUsageDiagnosticsModule : Module() {
 
   private fun reminderPreferences() =
     requireContext().getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+
+  private fun registerUnlockReceiver() {
+    if (unlockReceiver != null) return
+    val receiver = AndroidUsageReminderReceiver()
+    val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      requireContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+      requireContext().registerReceiver(receiver, filter)
+    }
+    unlockReceiver = receiver
+  }
+
+  private fun unregisterUnlockReceiver() {
+    unlockReceiver?.let { receiver ->
+      runCatching { requireContext().unregisterReceiver(receiver) }
+      unlockReceiver = null
+    }
+  }
 
   private fun hasUsageAccess(): Boolean {
     val context = requireContext()
@@ -108,7 +131,6 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val PREFERENCES_NAME = "android_usage_reminders"
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
-    const val KEY_STUDY_DECK_ID = "study_deck_id"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
     const val ACTION_SEQUENCE_CHECK = "expo.modules.androidusage.ACTION_SEQUENCE_CHECK"
     const val SEQUENCE_DURATION_MS = 10 * 1000L
