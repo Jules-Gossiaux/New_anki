@@ -32,8 +32,8 @@ Tags belong to notes rather than individual direction cards, so both forward and
 
 The card editor lets the user choose `both`, `forward` (`Mot → traduction`) or `reverse` (`Traduction → mot`) directions for a note. The default is both directions. Each selected direction is an independent card with its own FSRS state and review history. Removing a direction soft-deletes only that card, preserving its history; re-enabling it creates a new card with a fresh FSRS state. Changing the direction selection never resets a retained direction card; note-level content editing follows ADR-0006.
 
-## ADR-0009 - Anki import preservation and replacement (accepted; implementation pending)
+## ADR-0009 - Anki import preservation and replacement (accepted; supported text slice implemented)
 
 Import locally from `.apkg`, preserving supported source cards and progress as faithfully as possible. Repeated imports must avoid duplicates. Confirmed replacement makes imported content and valid scheduling authoritative while preserving append-only local review history. Supplementary fields retain their labels in extra information. Reuse decks by full path, explicitly report unsupported templates, and import otherwise valid cards even when a media file fails, with a visible per-card missing-media notice. Export remains deferred.
 
-The [import contract](ANKI_IMPORT.md) records the accepted requirements and the remaining technical investigations. Exact FSRS transfer and legacy scheduling conversion are not yet validated; no automatic reset of imported progress or improvised scheduler conversion is authorized.
+The [import contract](ANKI_IMPORT.md) records the supported text-card slice and remaining compatibility investigations. Exact FSRS transfer and legacy scheduling conversion are only supported where the source state is interpretable; no automatic reset of imported progress or improvised scheduler conversion is authorized. Media and complex template support remain explicitly deferred.

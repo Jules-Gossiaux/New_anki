@@ -55,4 +55,11 @@ describe('getCardDisplayStatus', () => {
     ).toMatch(/^Aujourd’hui à /);
     expect(formatCardSchedule(baseCard, now)).toBe('Nouvelle — pas encore programmée');
   });
+
+  it('formats review cards stored with a calendar due day', () => {
+    const today = Math.floor(Date.UTC(2026, 8, 16) / 86400000);
+    expect(
+      formatCardSchedule({ ...baseCard, state: CARD_STATES.review, dueDay: today + 1 }, now),
+    ).toBe('Demain');
+  });
 });

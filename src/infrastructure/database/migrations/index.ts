@@ -2,8 +2,14 @@ import type { DatabaseClient } from '../client';
 import { initialMigration } from './001_initial';
 import { schedulerStateMigration } from './002_scheduler_state';
 import { bidirectionalCardsMigration } from './003_bidirectional_cards';
+import { ankiImportMigration } from './004_anki_import';
 
-const migrations = [initialMigration, schedulerStateMigration, bidirectionalCardsMigration];
+const migrations = [
+  initialMigration,
+  schedulerStateMigration,
+  bidirectionalCardsMigration,
+  ankiImportMigration,
+];
 
 export async function migrateDatabase(db: DatabaseClient): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON;');

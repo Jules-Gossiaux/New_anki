@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useMemo, useState } from 'react';
+import { File } from 'expo-file-system';
 import {
   Alert,
   FlatList,
@@ -17,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Deck } from '../domain/decks';
 import { CardRepository, type StudyCounts } from '../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../infrastructure/repositories/deckRepository';
+import { importAnkiCollection } from '../application/importAnkiPackage';
+import { previewAnkiPackage, type AnkiPreview } from '../infrastructure/import/anki/preview';
 
 type Draft = { name: string; parentId: string | null };
 type VisibleDeck = Deck & { depth: number };
@@ -41,6 +44,7 @@ export default function DecksScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [studyCounts, setStudyCounts] = useState<Record<string, StudyCounts>>({});
   const [isModalVisible, setModalVisible] = useState(false);
+  const [unsupportedMediaMessage, setUnsupportedMediaMessage] = useState<string | null>(null);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: '', parentId: null });
 
@@ -95,6 +99,63 @@ export default function DecksScreen() {
     }
   };
 
+  const runAnkiImport = (file: File, preview: AnkiPreview, mode: 'new' | 'replace' = 'new') => {
+    void importAnkiCollection(db, {
+      fingerprint: `${file.name}:${file.size ?? 0}`,
+      sourceName: file.name,
+      collection: preview.collection,
+      notes: preview.notes,
+      mode,
+    })
+      .then(loadDecks)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Erreur inconnue';
+        if (message.includes('déjà été importé')) {
+          Alert.alert('Paquet déjà importé', message, [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Remplacer',
+              onPress: () => runAnkiImport(file, preview, 'replace'),
+            },
+          ]);
+        } else {
+          Alert.alert('Import impossible', message);
+        }
+      });
+  };
+
+  const importAnki = async () => {
+    try {
+      const picked = await File.pickFileAsync({
+        mimeTypes: ['application/zip', 'application/octet-stream'],
+      });
+      if (picked.canceled) return;
+      const file = picked.result;
+      const preview = await previewAnkiPackage(file);
+      const warning =
+        preview.report.unsupportedCards.length > 0
+          ? `\n${preview.report.unsupportedCards.length} carte(s) ignorée(s) car leur template est avancé.`
+          : '';
+      Alert.alert(
+        'Importer ce paquet Anki ?',
+        `${preview.report.notesImportable} note(s), ${preview.report.cardsImportable} carte(s) et ${preview.collection.reviews.length} événement(s) d’historique.${warning}`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Importer',
+            onPress: () => runAnkiImport(file, preview),
+          },
+        ],
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AnkiMediaNotSupportedError') {
+        setUnsupportedMediaMessage(error.message);
+        return;
+      }
+      Alert.alert('Import impossible', error instanceof Error ? error.message : 'Erreur inconnue');
+    }
+  };
+
   const deleteDeck = () => {
     if (!editingDeck) return;
     const deck = editingDeck;
@@ -127,13 +188,22 @@ export default function DecksScreen() {
             <Text style={styles.eyebrow}>VOCABULARY</Text>
             <Text style={styles.title}>Mes decks</Text>
           </View>
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => openCreate()}
-            accessibilityRole="button"
-          >
-            <Text style={styles.primaryButtonText}>Nouveau</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => void importAnki()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryButtonText}>Importer</Text>
+            </Pressable>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => openCreate()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.primaryButtonText}>Nouveau</Text>
+            </Pressable>
+          </View>
         </View>
 
         <FlatList
@@ -239,7 +309,39 @@ export default function DecksScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {unsupportedMediaMessage && (
+        <UnsupportedMediaDialog
+          message={unsupportedMediaMessage}
+          onClose={() => setUnsupportedMediaMessage(null)}
+        />
+      )}
     </SafeAreaView>
+  );
+}
+
+export function UnsupportedMediaDialog({
+  message,
+  onClose,
+}: {
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.warningBackdrop} accessibilityViewIsModal>
+      <View style={styles.warningCard}>
+        <Text style={styles.warningTitle}>Import non disponible</Text>
+        <Text style={styles.warningText}>{message}</Text>
+        <Pressable
+          style={styles.warningButton}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fermer l’alerte média"
+        >
+          <Text style={styles.warningButtonText}>Compris</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -349,6 +451,7 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     paddingTop: 14,
   },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   eyebrow: { color: '#667085', fontSize: 11, fontWeight: '800', letterSpacing: 1.8 },
   title: { color: '#101828', fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 5 },
   primaryButton: {
@@ -363,6 +466,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  secondaryButton: {
+    backgroundColor: '#EAF4FF',
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  secondaryButtonText: { color: '#1674D1', fontSize: 14, fontWeight: '800' },
   listContent: { gap: 14, paddingBottom: 100, paddingTop: 6 },
   emptyContent: { flexGrow: 1, paddingBottom: 100 },
   deckCard: {
@@ -450,6 +560,35 @@ const styles = StyleSheet.create({
   settingsIcon: { color: '#FFFFFF', fontSize: 26 },
   pressed: { opacity: 0.72 },
   modalBackdrop: { backgroundColor: 'rgba(16, 24, 40, 0.42)', flex: 1, justifyContent: 'flex-end' },
+  warningBackdrop: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 24, 40, 0.42)',
+    bottom: 0,
+    flex: 1,
+    justifyContent: 'center',
+    left: 0,
+    padding: 24,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  warningCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    maxWidth: 360,
+    padding: 24,
+    width: '100%',
+  },
+  warningTitle: { color: '#101828', fontSize: 21, fontWeight: '800' },
+  warningText: { color: '#475467', fontSize: 15, lineHeight: 22, marginTop: 12 },
+  warningButton: {
+    alignItems: 'center',
+    backgroundColor: '#1687F8',
+    borderRadius: 12,
+    marginTop: 24,
+    paddingVertical: 13,
+  },
+  warningButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,

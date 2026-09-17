@@ -15,7 +15,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(latestSchemaVersion).toBe(3);
+    expect(latestSchemaVersion).toBe(4);
     expect(executed).toContain('BEGIN IMMEDIATE;');
     expect(executed).toContain('COMMIT;');
     expect(executed.at(-1)).toBe('COMMIT;');

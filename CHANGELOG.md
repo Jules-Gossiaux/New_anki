@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+- Added an explicit in-app modal and cancellation for Anki packages containing media. Image/audio media import remains deferred.
+
 ### Added
 
+- Added the first local Anki `.apkg` import slice: ZIP/classic and modern Zstandard collection reading, preview before confirmation, hierarchical decks, Quizlet extended notes, tags, both directions, interpretable FSRS state and isolated imported review events.
+- Added a numbered import-provenance migration and explicit reporting for unsupported templates and packages already imported.
+- Converted Anki review due values relative to `col.crt` into Vocabulary calendar days and displayed imported day-based échéances in the card editor.
 - Preserved existing direction-card FSRS state when changing the selected study directions; only newly enabled directions start with a fresh state.
 - Added card-editor direction choices: both directions, forward only, or reverse only, with independent FSRS cards.
 - Made the card editor open immediately and keep all fields inside one bounded, scrollable modal panel.
