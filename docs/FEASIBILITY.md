@@ -18,6 +18,8 @@ On 2026-09-17, the connected OnePlus NE2213 running Android 16 (API 36) was dete
 
 The current read-only diagnostic prototype is reachable from Settings on Android development builds. It exposes the Usage Access status, opens the system Usage Access screen, and displays the last ten minutes of usage events. It does not schedule notifications, select cards, alter FSRS, monitor continuously, or show an overlay.
 
+Manual validation on the OnePlus test device succeeded. The diagnostic displayed `KEYGUARD_SHOWN`, `SCREEN_NON_INTERACTIVE`, `SCREEN_INTERACTIVE`, and `KEYGUARD_HIDDEN` around a lock/unlock sequence, as well as `ACTIVITY_RESUMED`, `ACTIVITY_PAUSED`, and `ACTIVITY_STOPPED` for Vocabulary and other applications. This confirms that Android exposes enough historical data to reconstruct unlocks and foreground-application sequences after querying it. It does not yet prove that the app can be woken and notify the user at the exact moment while it is fully backgrounded or force-closed.
+
 The Android spike must answer these questions on a real device:
 
 - Can the app detect a sufficiently reliable boundary for a phone-use sequence from usage events?
@@ -50,6 +52,10 @@ The safest first experiment is local due-card notifications and an in-app review
 The Android prototype must record permission UX, threshold accuracy, behavior after lock/reboot, background delivery, battery impact, privacy disclosure, Expo development-build requirements and Google Play policy risks. It must include a manual test matrix for: no due cards, daily limits exhausted, user opt-out, selected versus unselected applications, app backgrounded, app force-closed, reboot and permission revocation. Only then should an intervention adapter be selected.
 
 The spike is successful only if the result clearly states which product intent is technically supported, what is approximate or unavailable, and which fallback should be shipped. A notification-based prompt is the preferred fallback when direct unlock or exact background timing cannot be guaranteed.
+
+### Interim conclusion
+
+The data-observation part is feasible on the tested Android device. The product behavior is only partially feasible at this stage: an Android native receiver and/or background scheduling strategy still needs to be tested before promising an immediate post-unlock or post-three-minute notification. Directly opening the study screen over another application remains inappropriate; the first implementation should therefore target an opt-in notification that opens the study screen.
 
 ## Next actions
 
