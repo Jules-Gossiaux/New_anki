@@ -16,9 +16,9 @@ On 2026-09-17, the connected OnePlus NE2213 running Android 16 (API 36) was dete
 
 `UsageStatsManager` can query device usage history and events, but most cross-app methods require `android.permission.PACKAGE_USAGE_STATS` and the user must grant Usage Access in Settings. This needs native Android code/configuration and is not available as an Expo Go-only feature. A three-minute threshold could be computed from usage events, but delivery timing, OEM background limits and battery behavior require a development-build spike. An unlock-specific app callback is not a general public Expo capability; the product should use a notification or supported foreground/usage-access flow.
 
-The current read-only diagnostic prototype is reachable from Settings on Android development builds. It exposes the Usage Access status, opens the system Usage Access screen, and displays the last ten minutes of usage events. It does not schedule notifications, select cards, alter FSRS, monitor continuously, or show an overlay.
+The diagnostic screen is reachable from Settings on Android development builds. It exposes the Usage Access status, opens the system Usage Access screen and displays the last ten minutes of usage events. Its reminder controls are explicitly opt-in and start a visible foreground-service experiment; they do not select cards, alter FSRS, show an overlay or force a study screen.
 
-Manual validation on the OnePlus test device succeeded. The diagnostic displayed `KEYGUARD_SHOWN`, `SCREEN_NON_INTERACTIVE`, `SCREEN_INTERACTIVE`, and `KEYGUARD_HIDDEN` around a lock/unlock sequence, as well as `ACTIVITY_RESUMED`, `ACTIVITY_PAUSED`, and `ACTIVITY_STOPPED` for Vocabulary and other applications. This confirms that Android exposes enough historical data to reconstruct unlocks and foreground-application sequences after querying it. It does not yet prove that the app can be woken and notify the user at the exact moment while it is fully backgrounded or force-closed.
+Manual validation on the OnePlus test device succeeded. The diagnostic displayed `KEYGUARD_SHOWN`, `SCREEN_NON_INTERACTIVE`, `SCREEN_INTERACTIVE`, and `KEYGUARD_HIDDEN` around a lock/unlock sequence, as well as `ACTIVITY_RESUMED`, `ACTIVITY_PAUSED`, and `ACTIVITY_STOPPED` for Vocabulary and other applications. The opt-in foreground service then delivered repeatable notifications after each tested unlock and after each tested ten-second eligible app-use sequence, including reopening an app from Android's recent-app list. This confirms the Android-first test flow while Vocabulary is backgrounded. It does not validate force-stop, reboot, battery optimization or production store-policy behavior.
 
 The Android spike must answer these questions on a real device:
 
@@ -57,14 +57,14 @@ The spike is successful only if the result clearly states which product intent i
 
 ### Interim conclusion
 
-The data-observation part is feasible on the tested Android device. The product behavior is only partially feasible at this stage: the foreground-service reminder flow still needs real-device validation while the app is backgrounded. The prototype only emits notifications and opens the application home screen when the user taps one. A production decision must also assess Android foreground-service policy before shipping this mechanism.
+The Android-first data-observation and notification prototype is feasible on the tested OnePlus device while Vocabulary is backgrounded. It emits notifications only and opens the application home screen when the user taps one. This is still not a production commitment: force-stop/reboot behavior, OEM battery restrictions, selected-app configuration, card-availability refresh during normal use and Google Play foreground-service policy require further validation.
 
 ## Next actions
 
 1. Install/configure Android SDK Platform-Tools and verify `adb devices` with the test phone.
 2. Enable the experimental reminders from the diagnostic screen and verify notification permission behavior.
-3. Measure unlock notification delivery while Vocabulary is backgrounded and force-closed.
-4. Measure the ten-second test alarm after using an eligible application, after locking early, after reboot and under battery restrictions. The production threshold remains three minutes.
+3. Validate the foreground-service behavior after force-stop, reboot and battery optimization.
+4. Validate the ten-second test alarm under those conditions and after locking early. The production threshold remains three minutes.
 5. Decide whether the first shippable slice can use this notification adapter or must fall back to an in-app prompt on resume.
 
 ## Manual validation procedure
