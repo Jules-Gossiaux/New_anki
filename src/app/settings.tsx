@@ -12,17 +12,22 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AndroidUsageDiagnostics from '../../modules/android-usage';
+import type { Deck } from '../domain/decks';
 import {
   DEFAULT_REVIEW_SETTINGS,
   type ReviewSettings,
   type ReviewStep,
 } from '../domain/reviewSettings';
 import { ReviewSettingsRepository } from '../infrastructure/repositories/reviewSettingsRepository';
+import { DeckRepository } from '../infrastructure/repositories/deckRepository';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const repository = useMemo(() => new ReviewSettingsRepository(db), [db]);
+  const deckRepository = useMemo(() => new DeckRepository(db), [db]);
+  const [decks, setDecks] = useState<Deck[]>([]);
   const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
   const [learningStepsText, setLearningStepsText] = useState(
     DEFAULT_REVIEW_SETTINGS.learningSteps.join(', '),
@@ -40,7 +45,8 @@ export default function SettingsScreen() {
       setLearningStepsText(loaded.learningSteps.join(', '));
       setRelearningStepsText(loaded.relearningSteps.join(', '));
     });
-  }, [repository]);
+    void deckRepository.listAll().then(setDecks);
+  }, [deckRepository, repository]);
 
   useEffect(() => {
     return () => {
@@ -62,6 +68,7 @@ export default function SettingsScreen() {
         learningSteps: parseSteps(learningStepsText),
         relearningSteps: parseSteps(relearningStepsText),
       });
+      AndroidUsageDiagnostics?.setInterventionPromptMode(settings.interventionPromptMode);
       showToast('Réglages enregistrés');
     } catch (error) {
       Alert.alert('Réglages invalides', error instanceof Error ? error.message : 'Erreur inconnue');
@@ -124,6 +131,42 @@ export default function SettingsScreen() {
           autoCapitalize="none"
           accessibilityLabel="Étapes de réapprentissage"
         />
+        <Text style={styles.sectionTitle}>Révisions après utilisation</Text>
+        <Text style={styles.help}>
+          Choisis le deck prioritaire pour les sessions déclenchées par le téléphone. Sans choix,
+          tous les decks sont utilisés.
+        </Text>
+        <View style={styles.choiceList}>
+          <ChoiceButton
+            label="Tous les decks"
+            selected={settings.priorityDeckId === null}
+            onPress={() => setSettings({ ...settings, priorityDeckId: null })}
+          />
+          {decks.map((deck) => (
+            <ChoiceButton
+              key={deck.id}
+              label={deck.name}
+              selected={settings.priorityDeckId === deck.id}
+              onPress={() => setSettings({ ...settings, priorityDeckId: deck.id })}
+            />
+          ))}
+        </View>
+        <Text style={styles.help}>
+          Le mode direct tente d’ouvrir l’étude automatiquement. Android peut imposer une
+          notification lorsque Vocabulary est en arrière-plan.
+        </Text>
+        <View style={styles.choiceList}>
+          <ChoiceButton
+            label="Notification (recommandé)"
+            selected={settings.interventionPromptMode === 'notification'}
+            onPress={() => setSettings({ ...settings, interventionPromptMode: 'notification' })}
+          />
+          <ChoiceButton
+            label="Ouverture directe"
+            selected={settings.interventionPromptMode === 'direct'}
+            onPress={() => setSettings({ ...settings, interventionPromptMode: 'direct' })}
+          />
+        </View>
         <Pressable style={styles.saveButton} onPress={() => void save()} disabled={isSaving}>
           <Text style={styles.saveText}>{isSaving ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
@@ -142,6 +185,30 @@ export default function SettingsScreen() {
         </View>
       )}
     </SafeAreaView>
+  );
+}
+
+function ChoiceButton({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.choiceButton, selected && styles.choiceButtonSelected]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+    >
+      <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
+        {selected ? '✓ ' : ''}
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -225,6 +292,17 @@ const styles = StyleSheet.create({
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   diagnosticButton: { alignItems: 'center', marginTop: 18, padding: 12 },
   diagnosticText: { color: '#667085', fontSize: 13, fontWeight: '700' },
+  choiceList: { gap: 8, marginBottom: 18 },
+  choiceButton: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D0D5DD',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+  },
+  choiceButtonSelected: { backgroundColor: '#EAF4FF', borderColor: '#1687F8' },
+  choiceText: { color: '#475467', fontSize: 14, fontWeight: '600' },
+  choiceTextSelected: { color: '#1674D1', fontWeight: '800' },
   toast: {
     alignSelf: 'center',
     backgroundColor: '#344054',

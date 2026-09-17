@@ -1,10 +1,13 @@
 export type ReviewStep = `${number}${'m' | 'h' | 'd'}`;
+export type InterventionPromptMode = 'notification' | 'direct';
 
 export type ReviewSettings = {
   newCardsPerDay: number;
   reviewsPerDay: number;
   learningSteps: ReviewStep[];
   relearningSteps: ReviewStep[];
+  priorityDeckId: string | null;
+  interventionPromptMode: InterventionPromptMode;
 };
 
 export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
@@ -12,6 +15,8 @@ export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
   reviewsPerDay: 200,
   learningSteps: ['1m', '10m'],
   relearningSteps: ['10m'],
+  priorityDeckId: null,
+  interventionPromptMode: 'notification',
 };
 
 export function validateReviewSettings(settings: ReviewSettings): ReviewSettings {
@@ -33,6 +38,9 @@ export function validateReviewSettings(settings: ReviewSettings): ReviewSettings
     reviewsPerDay: integer(settings.reviewsPerDay, 'Reviews per day'),
     learningSteps: steps(settings.learningSteps, 'Learning steps'),
     relearningSteps: steps(settings.relearningSteps, 'Relearning steps'),
+    priorityDeckId: settings.priorityDeckId,
+    interventionPromptMode:
+      settings.interventionPromptMode === 'direct' ? 'direct' : 'notification',
   };
 }
 

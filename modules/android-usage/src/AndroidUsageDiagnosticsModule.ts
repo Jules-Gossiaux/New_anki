@@ -10,6 +10,7 @@ declare class AndroidUsageDiagnosticsModule extends NativeModule<AndroidUsageDia
   isReminderEnabled(): boolean;
   setReminderConfiguration(enabled: boolean, dueCardCount: number): void;
   sendTestNotification(): void;
+  setInterventionPromptMode(mode: 'notification' | 'direct'): void;
 }
 
 export default requireOptionalNativeModule<AndroidUsageDiagnosticsModule>(

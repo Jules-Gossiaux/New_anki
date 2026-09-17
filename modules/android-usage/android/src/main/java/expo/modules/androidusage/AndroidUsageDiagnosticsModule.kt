@@ -47,6 +47,11 @@ class AndroidUsageDiagnosticsModule : Module() {
     Function("sendTestNotification") {
       AndroidUsageReminderService.sendTestNotification(requireContext())
     }
+
+    Function("setInterventionPromptMode") { mode: String ->
+      require(mode == "notification" || mode == "direct") { "Invalid intervention prompt mode." }
+      reminderPreferences().edit().putBoolean(KEY_DIRECT_PROMPT, mode == "direct").apply()
+    }
   }
 
   private fun requireContext(): Context {
@@ -125,6 +130,7 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
+    const val KEY_DIRECT_PROMPT = "direct_prompt"
     const val TAG = "AndroidUsageReminder"
   }
 }

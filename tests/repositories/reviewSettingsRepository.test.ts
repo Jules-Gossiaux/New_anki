@@ -30,7 +30,7 @@ describe('ReviewSettingsRepository', () => {
     await new ReviewSettingsRepository(db).save(settings);
 
     expect(db.execAsync).toHaveBeenNthCalledWith(1, 'BEGIN IMMEDIATE;');
-    expect(db.runAsync).toHaveBeenCalledTimes(4);
+    expect(db.runAsync).toHaveBeenCalledTimes(6);
     expect(db.execAsync).toHaveBeenLastCalledWith('COMMIT;');
   });
 });

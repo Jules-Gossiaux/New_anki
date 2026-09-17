@@ -11,6 +11,8 @@ const keys = {
   reviewsPerDay: 'review.reviews_per_day',
   learningSteps: 'review.learning_steps',
   relearningSteps: 'review.relearning_steps',
+  priorityDeckId: 'review.priority_deck_id',
+  interventionPromptMode: 'review.intervention_prompt_mode',
 } as const;
 
 export class ReviewSettingsRepository {
@@ -18,11 +20,13 @@ export class ReviewSettingsRepository {
 
   public async get(): Promise<ReviewSettings> {
     const rows = await this.db.getAllAsync<{ key: string; value: string }>(
-      'SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?)',
+      'SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?)',
       keys.newCardsPerDay,
       keys.reviewsPerDay,
       keys.learningSteps,
       keys.relearningSteps,
+      keys.priorityDeckId,
+      keys.interventionPromptMode,
     );
     const values = new Map(rows.map((row) => [row.key, row.value]));
     return validateReviewSettings({
@@ -42,6 +46,9 @@ export class ReviewSettingsRepository {
         values.get(keys.relearningSteps),
         DEFAULT_REVIEW_SETTINGS.relearningSteps,
       ),
+      priorityDeckId: values.get(keys.priorityDeckId) || null,
+      interventionPromptMode:
+        values.get(keys.interventionPromptMode) === 'direct' ? 'direct' : 'notification',
     });
   }
 
@@ -53,6 +60,8 @@ export class ReviewSettingsRepository {
       [keys.reviewsPerDay, String(validated.reviewsPerDay)],
       [keys.learningSteps, JSON.stringify(validated.learningSteps)],
       [keys.relearningSteps, JSON.stringify(validated.relearningSteps)],
+      [keys.priorityDeckId, validated.priorityDeckId ?? ''],
+      [keys.interventionPromptMode, validated.interventionPromptMode],
     ];
     await this.db.execAsync('BEGIN IMMEDIATE;');
     try {

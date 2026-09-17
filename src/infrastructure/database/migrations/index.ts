@@ -3,12 +3,14 @@ import { initialMigration } from './001_initial';
 import { schedulerStateMigration } from './002_scheduler_state';
 import { bidirectionalCardsMigration } from './003_bidirectional_cards';
 import { ankiImportMigration } from './004_anki_import';
+import { interventionSettingsMigration } from './005_intervention_settings';
 
 const migrations = [
   initialMigration,
   schedulerStateMigration,
   bidirectionalCardsMigration,
   ankiImportMigration,
+  interventionSettingsMigration,
 ];
 
 export async function migrateDatabase(db: DatabaseClient): Promise<void> {
