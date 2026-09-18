@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Made the Android usage reminder duration configurable, with a three-minute default, and documented the force-stop limitation.
 - Added an explicit in-app modal and cancellation for Anki packages containing media. Image/audio media import remains deferred.
 - Documented Phase B's two phone-use review intervention intents and the required Android/iOS feasibility investigation before implementation.
 - Reworked the Android reminder feasibility prototype to use an opt-in foreground service for unlock and ten-second phone-use prompts; delivery can be a notification or an explicit Android overlay.

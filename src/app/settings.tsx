@@ -69,7 +69,12 @@ export default function SettingsScreen() {
         relearningSteps: parseSteps(relearningStepsText),
       });
       AndroidUsageDiagnostics?.setInterventionPromptMode(settings.interventionPromptMode);
-      showToast('Réglages enregistrés');
+      AndroidUsageDiagnostics?.setUsageReminderDuration(settings.usageReminderMinutes);
+      showToast(
+        Platform.OS === 'android'
+          ? 'Réglages enregistrés. Après un arrêt forcé, rouvre Vocabulary pour réactiver les rappels.'
+          : 'Réglages enregistrés',
+      );
     } catch (error) {
       Alert.alert('Réglages invalides', error instanceof Error ? error.message : 'Erreur inconnue');
     } finally {
@@ -132,6 +137,15 @@ export default function SettingsScreen() {
           accessibilityLabel="Étapes de réapprentissage"
         />
         <Text style={styles.sectionTitle}>Révisions après utilisation</Text>
+        <SettingField
+          label="Durée avant rappel après utilisation (minutes)"
+          value={settings.usageReminderMinutes}
+          onChange={(value) => setSettings({ ...settings, usageReminderMinutes: value })}
+        />
+        <Text style={styles.help}>
+          Le rappel se déclenche après cette durée d’utilisation continue d’une autre application.
+          La valeur par défaut est de 3 minutes. Pour tester plus rapidement, utilise 1 minute.
+        </Text>
         <Text style={styles.help}>
           Choisis le deck prioritaire pour les sessions déclenchées par le téléphone. Sans choix,
           tous les decks sont utilisés.

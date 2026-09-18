@@ -11,6 +11,7 @@ declare class AndroidUsageDiagnosticsModule extends NativeModule<AndroidUsageDia
   openOverlaySettings(): void;
   isReminderEnabled(): boolean;
   setReminderConfiguration(enabled: boolean, dueCardCount: number): void;
+  setUsageReminderDuration(minutes: number): void;
   sendTestNotification(): void;
   setInterventionPromptMode(mode: 'notification' | 'overlay_prompt' | 'direct'): void;
 }

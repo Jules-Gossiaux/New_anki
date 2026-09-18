@@ -75,6 +75,14 @@ class AndroidUsageDiagnosticsModule : Module() {
       }
       reminderPreferences().edit().putString(KEY_PROMPT_MODE, mode).apply()
     }
+
+    Function("setUsageReminderDuration") { minutes: Double ->
+      require(minutes >= MIN_USAGE_REMINDER_MINUTES && minutes <= MAX_USAGE_REMINDER_MINUTES) {
+        "Usage reminder duration must be between $MIN_USAGE_REMINDER_MINUTES and $MAX_USAGE_REMINDER_MINUTES minutes."
+      }
+      reminderPreferences().edit().putInt(KEY_USAGE_REMINDER_MINUTES, minutes.toInt()).apply()
+      Log.i(TAG, "Usage reminder duration: ${minutes.toInt()} minutes")
+    }
   }
 
   private fun requireContext(): Context {
@@ -154,6 +162,10 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val KEY_DUE_CARD_COUNT = "due_card_count"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
     const val KEY_PROMPT_MODE = "prompt_mode"
+    const val KEY_USAGE_REMINDER_MINUTES = "usage_reminder_minutes"
+    const val DEFAULT_USAGE_REMINDER_MINUTES = 3
+    const val MIN_USAGE_REMINDER_MINUTES = 1
+    const val MAX_USAGE_REMINDER_MINUTES = 60
     const val TAG = "AndroidUsageReminder"
   }
 }

@@ -161,7 +161,7 @@ class AndroidUsageReminderService : Service() {
       loggedUsageSessionStartedAt = session.startedAt
       return
     }
-    if (now - session.startedAt >= TEST_USAGE_DURATION_MS && notifiedUsageSessionStartedAt != session.startedAt) {
+    if (now - session.startedAt >= usageReminderDurationMs() && notifiedUsageSessionStartedAt != session.startedAt) {
       Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending 5-card notification")
       promptForReviews(5, "Révision après utilisation", "5 cartes sont prêtes à être révisées.")
       notifiedUsageSessionStartedAt = session.startedAt
@@ -188,6 +188,17 @@ class AndroidUsageReminderService : Service() {
     AndroidUsageDiagnosticsModule.PREFERENCES_NAME,
     Context.MODE_PRIVATE,
   )
+
+  private fun usageReminderDurationMs(): Long {
+    val minutes = preferences().getInt(
+      AndroidUsageDiagnosticsModule.KEY_USAGE_REMINDER_MINUTES,
+      AndroidUsageDiagnosticsModule.DEFAULT_USAGE_REMINDER_MINUTES,
+    ).coerceIn(
+      AndroidUsageDiagnosticsModule.MIN_USAGE_REMINDER_MINUTES,
+      AndroidUsageDiagnosticsModule.MAX_USAGE_REMINDER_MINUTES,
+    )
+    return minutes * 60_000L
+  }
 
   private fun promptForReviews(limit: Int, title: String, message: String) {
     val promptMode = preferences().getString(AndroidUsageDiagnosticsModule.KEY_PROMPT_MODE, "notification")
@@ -301,7 +312,6 @@ class AndroidUsageReminderService : Service() {
     private const val SERVICE_CHANNEL_ID = "usage-reminder-service"
     private const val SERVICE_NOTIFICATION_ID = 502
     private const val USAGE_CHECK_INTERVAL_MS = 1_000L
-    private const val TEST_USAGE_DURATION_MS = 10_000L
     private const val EVENT_LOOKBACK_MS = 15_000L
     private const val MAX_RETAINED_EVENT_IDS = 512
     private const val TAG = "AndroidUsageReminder"
