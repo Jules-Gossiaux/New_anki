@@ -48,7 +48,12 @@ export class ReviewSettingsRepository {
       ),
       priorityDeckId: values.get(keys.priorityDeckId) || null,
       interventionPromptMode:
-        values.get(keys.interventionPromptMode) === 'direct' ? 'direct' : 'notification',
+        values.get(keys.interventionPromptMode) === 'direct'
+          ? 'direct'
+          : values.get(keys.interventionPromptMode) === 'overlay' ||
+              values.get(keys.interventionPromptMode) === 'overlay_prompt'
+            ? 'overlay_prompt'
+            : 'notification',
     });
   }
 

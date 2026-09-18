@@ -1,5 +1,5 @@
 export type ReviewStep = `${number}${'m' | 'h' | 'd'}`;
-export type InterventionPromptMode = 'notification' | 'direct';
+export type InterventionPromptMode = 'notification' | 'overlay_prompt' | 'direct';
 
 export type ReviewSettings = {
   newCardsPerDay: number;
@@ -40,7 +40,11 @@ export function validateReviewSettings(settings: ReviewSettings): ReviewSettings
     relearningSteps: steps(settings.relearningSteps, 'Relearning steps'),
     priorityDeckId: settings.priorityDeckId,
     interventionPromptMode:
-      settings.interventionPromptMode === 'direct' ? 'direct' : 'notification',
+      settings.interventionPromptMode === 'direct'
+        ? 'direct'
+        : settings.interventionPromptMode === 'overlay_prompt'
+          ? 'overlay_prompt'
+          : 'notification',
   };
 }
 

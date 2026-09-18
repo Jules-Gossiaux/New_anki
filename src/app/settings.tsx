@@ -152,21 +152,38 @@ export default function SettingsScreen() {
           ))}
         </View>
         <Text style={styles.help}>
-          Le mode direct tente d’ouvrir l’étude automatiquement. Android peut imposer une
-          notification lorsque Vocabulary est en arrière-plan.
+          Choisis comment Vocabulary doit te proposer une session après l’utilisation du téléphone.
+          Le rappel nécessite l’autorisation Android « afficher par-dessus les autres applications
+          ».
         </Text>
         <View style={styles.choiceList}>
           <ChoiceButton
-            label="Notification (recommandé)"
+            label="Notification"
             selected={settings.interventionPromptMode === 'notification'}
             onPress={() => setSettings({ ...settings, interventionPromptMode: 'notification' })}
           />
           <ChoiceButton
-            label="Ouverture directe"
+            label="Afficher un rappel"
+            selected={settings.interventionPromptMode === 'overlay_prompt'}
+            onPress={() => setSettings({ ...settings, interventionPromptMode: 'overlay_prompt' })}
+          />
+          <ChoiceButton
+            label="Ouverture directe de la session"
             selected={settings.interventionPromptMode === 'direct'}
             onPress={() => setSettings({ ...settings, interventionPromptMode: 'direct' })}
           />
         </View>
+        {Platform.OS === 'android' &&
+          settings.interventionPromptMode === 'overlay_prompt' &&
+          AndroidUsageDiagnostics &&
+          !AndroidUsageDiagnostics.hasOverlayPermission() && (
+            <Pressable
+              style={styles.overlayPermissionButton}
+              onPress={() => AndroidUsageDiagnostics?.openOverlaySettings()}
+            >
+              <Text style={styles.overlayPermissionText}>Autoriser l’affichage nécessaire</Text>
+            </Pressable>
+          )}
         <Pressable style={styles.saveButton} onPress={() => void save()} disabled={isSaving}>
           <Text style={styles.saveText}>{isSaving ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
@@ -292,6 +309,15 @@ const styles = StyleSheet.create({
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   diagnosticButton: { alignItems: 'center', marginTop: 18, padding: 12 },
   diagnosticText: { color: '#667085', fontSize: 13, fontWeight: '700' },
+  overlayPermissionButton: {
+    alignItems: 'center',
+    borderColor: '#D92D20',
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+    padding: 12,
+  },
+  overlayPermissionText: { color: '#D92D20', fontSize: 13, fontWeight: '800' },
   choiceList: { gap: 8, marginBottom: 18 },
   choiceButton: {
     backgroundColor: '#FFFFFF',

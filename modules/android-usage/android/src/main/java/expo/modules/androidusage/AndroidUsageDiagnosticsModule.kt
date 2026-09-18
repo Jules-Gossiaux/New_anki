@@ -37,6 +37,20 @@ class AndroidUsageDiagnosticsModule : Module() {
       getRecentEvents(windowMs.toLong())
     }
 
+    Function("hasOverlayPermission") {
+      Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(requireContext())
+    }
+
+    Function("openOverlaySettings") {
+      val context = requireContext()
+      context.startActivity(
+        Intent(
+          Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          android.net.Uri.parse("package:${context.packageName}"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }
+
     Function("isReminderEnabled") {
       reminderPreferences().getBoolean(KEY_ENABLED, false)
     }
@@ -56,8 +70,10 @@ class AndroidUsageDiagnosticsModule : Module() {
     }
 
     Function("setInterventionPromptMode") { mode: String ->
-      require(mode == "notification" || mode == "direct") { "Invalid intervention prompt mode." }
-      reminderPreferences().edit().putBoolean(KEY_DIRECT_PROMPT, mode == "direct").apply()
+      require(mode == "notification" || mode == "overlay_prompt" || mode == "direct") {
+        "Invalid intervention prompt mode."
+      }
+      reminderPreferences().edit().putString(KEY_PROMPT_MODE, mode).apply()
     }
   }
 
@@ -137,7 +153,7 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val KEY_ENABLED = "enabled"
     const val KEY_DUE_CARD_COUNT = "due_card_count"
     const val KEY_LAST_UNLOCK_AT = "last_unlock_at"
-    const val KEY_DIRECT_PROMPT = "direct_prompt"
+    const val KEY_PROMPT_MODE = "prompt_mode"
     const val TAG = "AndroidUsageReminder"
   }
 }
