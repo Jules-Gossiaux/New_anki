@@ -69,7 +69,9 @@ export default function SettingsScreen() {
         relearningSteps: parseSteps(relearningStepsText),
       });
       AndroidUsageDiagnostics?.setInterventionPromptMode(settings.interventionPromptMode);
-      AndroidUsageDiagnostics?.setUsageReminderDuration(settings.usageReminderMinutes);
+      if (typeof AndroidUsageDiagnostics?.setUsageReminderDuration === 'function') {
+        AndroidUsageDiagnostics.setUsageReminderDuration(settings.usageReminderMinutes);
+      }
       showToast(
         Platform.OS === 'android'
           ? 'Réglages enregistrés. Après un arrêt forcé, rouvre Vocabulary pour réactiver les rappels.'
