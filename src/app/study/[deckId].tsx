@@ -57,6 +57,13 @@ export default function StudyScreen() {
     : null;
   const [reviewedInSession, setReviewedInSession] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const leaveStudy = useCallback(() => {
+    if (isIntervention) {
+      router.replace('/');
+    } else {
+      router.back();
+    }
+  }, [isIntervention, router]);
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
@@ -91,7 +98,7 @@ export default function StudyScreen() {
       } else {
         const deck = await new DeckRepository(db).getById(deckId);
         if (!deck) {
-          router.back();
+          leaveStudy();
           return;
         }
         setDeckName(deck.name);
@@ -113,7 +120,7 @@ export default function StudyScreen() {
       }
       setRevealed(false);
     },
-    [cardRepository, db, deckId, interventionLimit, isIntervention, router, settingsRepository],
+    [cardRepository, db, deckId, interventionLimit, isIntervention, leaveStudy, settingsRepository],
   );
 
   useEffect(() => {
@@ -179,7 +186,7 @@ export default function StudyScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} accessibilityLabel="Retour">
+          <Pressable onPress={leaveStudy} accessibilityLabel="Retour">
             <Text style={styles.headerBack}>‹</Text>
           </Pressable>
           <View style={styles.headerCopy}>
@@ -202,7 +209,7 @@ export default function StudyScreen() {
                 <Text style={styles.emptyText}>
                   Tu as révisé {reviewedInSession} carte{reviewedInSession === 1 ? '' : 's'}.
                 </Text>
-                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                <Pressable style={styles.secondaryButton} onPress={leaveStudy}>
                   <Text style={styles.secondaryButtonText}>Retour</Text>
                 </Pressable>
               </>
@@ -213,7 +220,7 @@ export default function StudyScreen() {
                 <Text style={styles.emptyText}>
                   Les cartes restantes seront disponibles demain selon tes réglages.
                 </Text>
-                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                <Pressable style={styles.secondaryButton} onPress={leaveStudy}>
                   <Text style={styles.secondaryButtonText}>Retour au deck</Text>
                 </Pressable>
               </>
@@ -231,7 +238,7 @@ export default function StudyScreen() {
                 <Text style={styles.emptyText}>
                   Aucune carte nouvelle ou due n’est disponible pour cette session.
                 </Text>
-                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                <Pressable style={styles.secondaryButton} onPress={leaveStudy}>
                   <Text style={styles.secondaryButtonText}>Retour au deck</Text>
                 </Pressable>
               </>

@@ -4,7 +4,7 @@ Vocabulary is a mobile-first vocabulary learning app aiming to combine Anki's te
 
 ## Status
 
-The Phase A MVP is complete for the supported text-card scope. The Expo shell, project rules, architecture, test/tooling setup, platform feasibility investigation, SQLite foundation, global revision settings, FSRS scheduling, review history, study/review flow, deck/card management, bidirectional cards, normalized tags and local text-card Anki import are in place. Android is the current validation platform; iOS validation and broader compatibility work remain outside the MVP acceptance criteria.
+The MVP is complete for the supported Android-first scope. The Expo shell, project rules, architecture, test/tooling setup, SQLite foundation, global revision settings, FSRS scheduling, review history, study/review flow, deck/card management, bidirectional cards, normalized tags, local text-card Anki import and Android phone-use review interventions are in place. Android is the current validation platform; iOS validation and broader compatibility work remain outside the MVP acceptance criteria.
 
 ## Quick start
 
@@ -34,7 +34,7 @@ Read [AGENTS.md](AGENTS.md) before coding. The architecture and staged plan are 
 
 ## Important limitations
 
-Full Anki compatibility is not claimed. The supported import slice reads text-card `.apkg` collections and preserves supported scheduling/history data, but complex templates and media are not supported. `.apkg` export and CSV convenience import/export are not available. Unlock and phone-use interventions require platform-specific feasibility work; the current product direction is notification- or supported-extension-based rather than an assumed universal unlock hook. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.
+Full Anki compatibility is not claimed. The supported import slice reads text-card `.apkg` collections and preserves supported scheduling/history data, but complex templates and media are not supported. `.apkg` export and CSV convenience import/export are not available. Android interventions use an opt-in foreground service, Usage Access and configurable notification/overlay/direct-opening delivery; a force-stop requires reopening Vocabulary to reactivate the service. Android is the current validation platform; iOS remains a target but is outside the MVP acceptance criteria.
 
 ## Import Anki
 

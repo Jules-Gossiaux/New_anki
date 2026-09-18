@@ -69,7 +69,14 @@ export default function SettingsScreen() {
         relearningSteps: parseSteps(relearningStepsText),
       });
       AndroidUsageDiagnostics?.setInterventionPromptMode(settings.interventionPromptMode);
-      showToast('Réglages enregistrés');
+      if (typeof AndroidUsageDiagnostics?.setUsageReminderDuration === 'function') {
+        AndroidUsageDiagnostics.setUsageReminderDuration(settings.usageReminderMinutes);
+      }
+      showToast(
+        Platform.OS === 'android'
+          ? 'Réglages enregistrés. Après un arrêt forcé, rouvre Vocabulary pour réactiver les rappels.'
+          : 'Réglages enregistrés',
+      );
     } catch (error) {
       Alert.alert('Réglages invalides', error instanceof Error ? error.message : 'Erreur inconnue');
     } finally {
@@ -132,6 +139,15 @@ export default function SettingsScreen() {
           accessibilityLabel="Étapes de réapprentissage"
         />
         <Text style={styles.sectionTitle}>Révisions après utilisation</Text>
+        <SettingField
+          label="Durée avant rappel après utilisation (minutes)"
+          value={settings.usageReminderMinutes}
+          onChange={(value) => setSettings({ ...settings, usageReminderMinutes: value })}
+        />
+        <Text style={styles.help}>
+          Le rappel se déclenche après cette durée d’utilisation continue d’une autre application.
+          La valeur par défaut est de 3 minutes. Pour tester plus rapidement, utilise 1 minute.
+        </Text>
         <Text style={styles.help}>
           Choisis le deck prioritaire pour les sessions déclenchées par le téléphone. Sans choix,
           tous les decks sont utilisés.
@@ -152,21 +168,38 @@ export default function SettingsScreen() {
           ))}
         </View>
         <Text style={styles.help}>
-          Le mode direct tente d’ouvrir l’étude automatiquement. Android peut imposer une
-          notification lorsque Vocabulary est en arrière-plan.
+          Choisis comment Vocabulary doit te proposer une session après l’utilisation du téléphone.
+          Le rappel nécessite l’autorisation Android « afficher par-dessus les autres applications
+          ».
         </Text>
         <View style={styles.choiceList}>
           <ChoiceButton
-            label="Notification (recommandé)"
+            label="Notification"
             selected={settings.interventionPromptMode === 'notification'}
             onPress={() => setSettings({ ...settings, interventionPromptMode: 'notification' })}
           />
           <ChoiceButton
-            label="Ouverture directe"
+            label="Afficher un rappel"
+            selected={settings.interventionPromptMode === 'overlay_prompt'}
+            onPress={() => setSettings({ ...settings, interventionPromptMode: 'overlay_prompt' })}
+          />
+          <ChoiceButton
+            label="Ouverture directe de la session"
             selected={settings.interventionPromptMode === 'direct'}
             onPress={() => setSettings({ ...settings, interventionPromptMode: 'direct' })}
           />
         </View>
+        {Platform.OS === 'android' &&
+          settings.interventionPromptMode === 'overlay_prompt' &&
+          AndroidUsageDiagnostics &&
+          !AndroidUsageDiagnostics.hasOverlayPermission() && (
+            <Pressable
+              style={styles.overlayPermissionButton}
+              onPress={() => AndroidUsageDiagnostics?.openOverlaySettings()}
+            >
+              <Text style={styles.overlayPermissionText}>Autoriser l’affichage nécessaire</Text>
+            </Pressable>
+          )}
         <Pressable style={styles.saveButton} onPress={() => void save()} disabled={isSaving}>
           <Text style={styles.saveText}>{isSaving ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
@@ -292,6 +325,15 @@ const styles = StyleSheet.create({
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   diagnosticButton: { alignItems: 'center', marginTop: 18, padding: 12 },
   diagnosticText: { color: '#667085', fontSize: 13, fontWeight: '700' },
+  overlayPermissionButton: {
+    alignItems: 'center',
+    borderColor: '#D92D20',
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+    padding: 12,
+  },
+  overlayPermissionText: { color: '#D92D20', fontSize: 13, fontWeight: '800' },
   choiceList: { gap: 8, marginBottom: 18 },
   choiceButton: {
     backgroundColor: '#FFFFFF',

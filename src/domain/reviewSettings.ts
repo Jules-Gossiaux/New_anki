@@ -1,5 +1,5 @@
 export type ReviewStep = `${number}${'m' | 'h' | 'd'}`;
-export type InterventionPromptMode = 'notification' | 'direct';
+export type InterventionPromptMode = 'notification' | 'overlay_prompt' | 'direct';
 
 export type ReviewSettings = {
   newCardsPerDay: number;
@@ -8,6 +8,7 @@ export type ReviewSettings = {
   relearningSteps: ReviewStep[];
   priorityDeckId: string | null;
   interventionPromptMode: InterventionPromptMode;
+  usageReminderMinutes: number;
 };
 
 export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
@@ -17,6 +18,7 @@ export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
   relearningSteps: ['10m'],
   priorityDeckId: null,
   interventionPromptMode: 'notification',
+  usageReminderMinutes: 3,
 };
 
 export function validateReviewSettings(settings: ReviewSettings): ReviewSettings {
@@ -40,8 +42,25 @@ export function validateReviewSettings(settings: ReviewSettings): ReviewSettings
     relearningSteps: steps(settings.relearningSteps, 'Relearning steps'),
     priorityDeckId: settings.priorityDeckId,
     interventionPromptMode:
-      settings.interventionPromptMode === 'direct' ? 'direct' : 'notification',
+      settings.interventionPromptMode === 'direct'
+        ? 'direct'
+        : settings.interventionPromptMode === 'overlay_prompt'
+          ? 'overlay_prompt'
+          : 'notification',
+    usageReminderMinutes: integerInRange(
+      settings.usageReminderMinutes,
+      'Usage reminder duration',
+      1,
+      60,
+    ),
   };
+}
+
+function integerInRange(value: number, label: string, minimum: number, maximum: number): number {
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${label} must be an integer between ${minimum} and ${maximum}.`);
+  }
+  return value;
 }
 
 export function getAvailableNewCardCount(

@@ -2,15 +2,18 @@
 
 ## Unreleased
 
+- Closed the supported Android MVP scope, including configurable phone-use review interventions and documented remaining platform hardening work.
+- Made the Android usage reminder duration configurable, with a three-minute default, and documented the force-stop limitation.
 - Added an explicit in-app modal and cancellation for Anki packages containing media. Image/audio media import remains deferred.
 - Documented Phase B's two phone-use review intervention intents and the required Android/iOS feasibility investigation before implementation.
-- Reworked the Android reminder feasibility prototype to use an opt-in foreground service for unlock and ten-second phone-use notifications; automatic study-screen launches remain disabled.
+- Reworked the Android reminder feasibility prototype to use an opt-in foreground service for unlock and ten-second phone-use prompts; delivery can be a notification or an explicit Android overlay.
 - Refreshed the Android reminder card snapshot when returning to the diagnostic screen and added targeted native reminder logs for device diagnosis.
 - Made Android reminder notifications distinct for every unlock and for each new eligible foreground-app session; returning to a recent app now restarts its ten-second test timer.
 - Replaced the unreliable Android `USER_PRESENT` broadcast with observed Usage Access lock-state events for reminder detection.
-- Validated repeatable Android unlock and eligible app-use reminder notifications on the OnePlus test device; reboot, force-stop and battery-policy cases remain pending.
+- Added overlap/de-duplication to the Android Usage Access event reader so delayed unlock and app-use events are not silently missed; repeated device validation remains pending.
+- Added three Android intervention choices: notification, a reminder prompt with `Fermer`/`Commencer`, or direct opening of the study session; unsupported flows fall back to notifications.
 - Documented intervention-study choices: optional priority deck, up-to limits, abandoned sessions and notification fallback when Android blocks background screen launches.
-- Added the Android intervention study route, including notification deep links, optional priority-deck selection and notification/direct-open preferences while reusing the existing FSRS review flow.
+- Added the Android intervention study route, including notification deep links, optional priority-deck selection and notification/overlay preferences while reusing the existing FSRS review flow.
 - Made intervention delivery fall back reliably to notifications when Vocabulary is not foregrounded, with diagnostic logs for permission, mode and delivery decisions.
 
 ### Added

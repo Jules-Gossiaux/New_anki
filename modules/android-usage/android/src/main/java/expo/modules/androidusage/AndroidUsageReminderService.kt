@@ -10,12 +10,21 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.PixelFormat
+import android.provider.Settings
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.net.Uri
 import android.util.Log
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicInteger
 
 class AndroidUsageReminderService : Service() {
@@ -25,17 +34,22 @@ class AndroidUsageReminderService : Service() {
   )
 
   private val handler = Handler(Looper.getMainLooper())
-  private var usageCheck: Runnable? = null
   private var unlockMonitor: Runnable? = null
   private var notifiedUsageSessionStartedAt: Long? = null
   private var loggedUsageSessionStartedAt: Long? = null
   private var lastUnlockEventAt = 0L
+  private var currentUnlockAt: Long? = null
+  private var activeUsageSession: ForegroundSession? = null
+  private var overlayView: View? = null
+  private val processedEventIds = ArrayDeque<String>()
+  private val processedEventIdSet = mutableSetOf<String>()
 
   override fun onCreate() {
     super.onCreate()
     Log.i(TAG, "Foreground reminder service created")
     createNotificationChannel(this)
     startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification(this))
+    lastUnlockEventAt = preferences().getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L)
     startUnlockMonitor()
   }
 
@@ -51,8 +65,8 @@ class AndroidUsageReminderService : Service() {
 
   override fun onDestroy() {
     Log.i(TAG, "Foreground reminder service destroyed")
-    cancelUsageCheck()
     cancelUnlockMonitor()
+    removeOverlay()
     stopForeground(STOP_FOREGROUND_REMOVE)
     super.onDestroy()
   }
@@ -61,7 +75,7 @@ class AndroidUsageReminderService : Service() {
 
   private fun startUnlockMonitor() {
     if (unlockMonitor != null) return
-    var queryStart = System.currentTimeMillis()
+    var queryStart = System.currentTimeMillis() - EVENT_LOOKBACK_MS
     val monitor = object : Runnable {
       override fun run() {
         if (!hasAvailableCards()) {
@@ -77,13 +91,13 @@ class AndroidUsageReminderService : Service() {
 
         while (events.hasNextEvent()) {
           events.getNextEvent(event)
-          when (event.eventType) {
-            UsageEvents.Event.KEYGUARD_HIDDEN -> onPhoneUnlocked(event.timeStamp)
-            UsageEvents.Event.SCREEN_NON_INTERACTIVE -> onScreenLocked()
-          }
+          if (isNewEvent(event)) handleUsageEvent(event)
         }
 
-        queryStart = now
+        evaluateUsageSession(now)
+        // UsageStats events can arrive late. Re-reading a small overlap prevents event loss;
+        // isNewEvent() makes that overlap idempotent.
+        queryStart = now - EVENT_LOOKBACK_MS
         handler.postDelayed(this, USAGE_CHECK_INTERVAL_MS)
       }
     }
@@ -105,58 +119,63 @@ class AndroidUsageReminderService : Service() {
     }
     Log.i(TAG, "Phone unlocked from Usage Access event: sending 3-card notification")
     preferences().edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockedAt).apply()
+    currentUnlockAt = unlockedAt
     promptForReviews(3, "Révision disponible", "3 cartes sont prêtes à être révisées.")
-    scheduleUsageCheck(unlockedAt)
   }
 
   private fun onScreenLocked() {
-    if (usageCheck != null) Log.i(TAG, "Screen locked: cancelling usage check")
+    if (currentUnlockAt != null) Log.i(TAG, "Screen locked: clearing usage session")
     preferences().edit().remove(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT).apply()
+    currentUnlockAt = null
+    activeUsageSession = null
+    removeOverlay()
     notifiedUsageSessionStartedAt = null
     loggedUsageSessionStartedAt = null
-    cancelUsageCheck()
   }
 
-  private fun scheduleUsageCheck(unlockedAt: Long) {
-    cancelUsageCheck()
-    notifiedUsageSessionStartedAt = null
-    loggedUsageSessionStartedAt = null
-    val check = object : Runnable {
-      override fun run() {
-        if (!hasAvailableCards() || preferences().getLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, 0L) != unlockedAt) {
-          Log.i(TAG, "Usage check cancelled")
-          cancelUsageCheck()
-          return
-        }
-        val session = getEligibleForegroundSession(unlockedAt, System.currentTimeMillis())
-        if (session == null) {
+  private fun handleUsageEvent(event: UsageEvents.Event) {
+    when (event.eventType) {
+      UsageEvents.Event.KEYGUARD_HIDDEN -> onPhoneUnlocked(event.timeStamp)
+      UsageEvents.Event.SCREEN_NON_INTERACTIVE -> onScreenLocked()
+      UsageEvents.Event.ACTIVITY_RESUMED -> {
+        if (currentUnlockAt != null && isEligiblePackage(event.packageName)) {
+          activeUsageSession = ForegroundSession(event.packageName, event.timeStamp)
           notifiedUsageSessionStartedAt = null
           loggedUsageSessionStartedAt = null
-        } else if (loggedUsageSessionStartedAt != session.startedAt) {
-          Log.i(TAG, "Eligible foreground session started for ${session.packageName}")
-          loggedUsageSessionStartedAt = session.startedAt
-        } else if (
-          System.currentTimeMillis() - session.startedAt >= TEST_USAGE_DURATION_MS &&
-          notifiedUsageSessionStartedAt != session.startedAt
-        ) {
-          Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending 5-card notification")
-          promptForReviews(
-            5,
-            "Révision après utilisation",
-            "5 cartes sont prêtes à être révisées.",
-          )
-          notifiedUsageSessionStartedAt = session.startedAt
+        } else if (event.packageName != packageName) {
+          activeUsageSession = null
         }
-        handler.postDelayed(this, USAGE_CHECK_INTERVAL_MS)
+      }
+      UsageEvents.Event.ACTIVITY_PAUSED,
+      UsageEvents.Event.ACTIVITY_STOPPED -> {
+        if (event.packageName == activeUsageSession?.packageName) activeUsageSession = null
       }
     }
-    usageCheck = check
-    handler.postDelayed(check, USAGE_CHECK_INTERVAL_MS)
   }
 
-  private fun cancelUsageCheck() {
-    usageCheck?.let(handler::removeCallbacks)
-    usageCheck = null
+  private fun evaluateUsageSession(now: Long) {
+    val session = activeUsageSession ?: return
+    if (!hasAvailableCards() || currentUnlockAt == null) return
+    if (loggedUsageSessionStartedAt != session.startedAt) {
+      Log.i(TAG, "Eligible foreground session started for ${session.packageName}")
+      loggedUsageSessionStartedAt = session.startedAt
+      return
+    }
+    if (now - session.startedAt >= usageReminderDurationMs() && notifiedUsageSessionStartedAt != session.startedAt) {
+      Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending 5-card notification")
+      promptForReviews(5, "Révision après utilisation", "5 cartes sont prêtes à être révisées.")
+      notifiedUsageSessionStartedAt = session.startedAt
+    }
+  }
+
+  private fun isNewEvent(event: UsageEvents.Event): Boolean {
+    val id = "${event.timeStamp}:${event.eventType}:${event.packageName}:${event.className}"
+    if (!processedEventIdSet.add(id)) return false
+    processedEventIds.addLast(id)
+    if (processedEventIds.size > MAX_RETAINED_EVENT_IDS) {
+      processedEventIdSet.remove(processedEventIds.removeFirst())
+    }
+    return true
   }
 
   private fun hasAvailableCards(): Boolean {
@@ -170,83 +189,116 @@ class AndroidUsageReminderService : Service() {
     Context.MODE_PRIVATE,
   )
 
+  private fun usageReminderDurationMs(): Long {
+    val minutes = preferences().getInt(
+      AndroidUsageDiagnosticsModule.KEY_USAGE_REMINDER_MINUTES,
+      AndroidUsageDiagnosticsModule.DEFAULT_USAGE_REMINDER_MINUTES,
+    ).coerceIn(
+      AndroidUsageDiagnosticsModule.MIN_USAGE_REMINDER_MINUTES,
+      AndroidUsageDiagnosticsModule.MAX_USAGE_REMINDER_MINUTES,
+    )
+    return minutes * 60_000L
+  }
+
   private fun promptForReviews(limit: Int, title: String, message: String) {
-    val directMode = preferences().getBoolean(AndroidUsageDiagnosticsModule.KEY_DIRECT_PROMPT, false)
-    val appInForeground = isApplicationInForeground()
-    Log.i(TAG, "Review prompt: limit=$limit directMode=$directMode appInForeground=$appInForeground")
-    if (directMode && appInForeground && openStudyScreen(limit)) return
+    val promptMode = preferences().getString(AndroidUsageDiagnosticsModule.KEY_PROMPT_MODE, "notification")
+      ?: "notification"
+    Log.i(TAG, "Review prompt: limit=$limit mode=$promptMode")
+    if (promptMode == "direct") {
+      if (openStudyScreen(limit)) return
+    } else if (promptMode == "overlay_prompt" && showOverlay(limit, title, message)) {
+      return
+    }
     showReviewNotification(this, title, message, limit)
   }
 
-  private fun isApplicationInForeground(): Boolean {
-    val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    val now = System.currentTimeMillis()
-    val events = manager.queryEvents(now - EVENT_LOOKBACK_MS, now)
-    val event = UsageEvents.Event()
-    var foreground = false
-    while (events.hasNextEvent()) {
-      events.getNextEvent(event)
-      when (event.eventType) {
-        UsageEvents.Event.ACTIVITY_RESUMED -> foreground = event.packageName == packageName
-        UsageEvents.Event.ACTIVITY_PAUSED,
-        UsageEvents.Event.ACTIVITY_STOPPED -> {
-          if (event.packageName == packageName) foreground = false
-        }
-        UsageEvents.Event.SCREEN_NON_INTERACTIVE -> foreground = false
-      }
+  private fun showOverlay(limit: Int, title: String, message: String): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+      Log.w(TAG, "Overlay prompt unavailable: overlay permission is not granted")
+      return false
     }
-    return foreground
+    if (overlayView != null) return true
+
+    val density = resources.displayMetrics.density
+    fun dp(value: Int) = (value * density).toInt()
+    val panel = LinearLayout(this).apply {
+      orientation = LinearLayout.VERTICAL
+      setPadding(dp(20), dp(16), dp(20), dp(16))
+      setBackgroundColor(0xFFF7F9FC.toInt())
+      elevation = dp(8).toFloat()
+    }
+    panel.addView(TextView(this).apply {
+      text = "VOCABULARY"
+      textSize = 12f
+      setTextColor(0xFF667085.toInt())
+    })
+    panel.addView(TextView(this).apply {
+      text = title
+      textSize = 20f
+      setTextColor(0xFF101828.toInt())
+      setPadding(0, dp(6), 0, 0)
+    })
+    panel.addView(TextView(this).apply {
+      text = "$message\nLa session s’ouvrira dans Vocabulary."
+      textSize = 15f
+      setTextColor(0xFF475467.toInt())
+      setPadding(0, dp(6), 0, dp(8))
+    })
+    val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+    actions.addView(Button(this).apply {
+      text = "Fermer"
+      setOnClickListener { removeOverlay() }
+    }, LinearLayout.LayoutParams(0, dp(48), 1f))
+    actions.addView(Button(this).apply {
+      text = "Commencer"
+      setOnClickListener {
+        removeOverlay()
+        if (!openStudyScreen(limit)) {
+          showReviewNotification(this@AndroidUsageReminderService, title, message, limit)
+        }
+      }
+    }, LinearLayout.LayoutParams(0, dp(48), 1f))
+    panel.addView(actions)
+
+    val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    val params = WindowManager.LayoutParams(
+      WindowManager.LayoutParams.MATCH_PARENT,
+      WindowManager.LayoutParams.WRAP_CONTENT,
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+      } else {
+        @Suppress("DEPRECATION")
+        WindowManager.LayoutParams.TYPE_PHONE
+      },
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+      PixelFormat.TRANSLUCENT,
+    ).apply {
+      gravity = Gravity.TOP
+      y = dp(48)
+    }
+    return runCatching {
+      windowManager.addView(panel, params)
+      overlayView = panel
+    }.onFailure {
+      Log.e(TAG, "Overlay prompt could not be shown", it)
+    }.isSuccess
+  }
+
+  private fun removeOverlay() {
+    val view = overlayView ?: return
+    val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    runCatching { windowManager.removeView(view) }
+    overlayView = null
   }
 
   private fun openStudyScreen(limit: Int): Boolean {
-    val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
+    val launchIntent = studyIntent(this, limit)
+    if (launchIntent.resolveActivity(packageManager) == null) return false
     return runCatching {
-      launchIntent.data = Uri.parse("vocabulary://study/intervention?limit=$limit")
-      launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
       startActivity(launchIntent)
     }.onFailure {
       Log.w(TAG, "Direct study launch blocked; falling back to notification", it)
     }.isSuccess
-  }
-
-  private fun getEligibleForegroundSession(start: Long, end: Long): ForegroundSession? {
-    val manager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    // The unlock event and foreground activity can be emitted in either order. The small
-    // lookback retains the activity event without carrying a session across a screen lock:
-    // screen events below always clear the active session.
-    val events = manager.queryEvents(start - EVENT_LOOKBACK_MS, end)
-    val event = UsageEvents.Event()
-    var activePackage: String? = null
-    var activeSince = 0L
-
-    while (events.hasNextEvent()) {
-      events.getNextEvent(event)
-      when (event.eventType) {
-        UsageEvents.Event.ACTIVITY_RESUMED -> {
-          if (isEligiblePackage(event.packageName)) {
-            if (event.packageName != activePackage) activeSince = event.timeStamp
-            activePackage = event.packageName
-          } else {
-            activePackage = null
-            activeSince = 0L
-          }
-        }
-        UsageEvents.Event.ACTIVITY_PAUSED,
-        UsageEvents.Event.ACTIVITY_STOPPED -> {
-          if (event.packageName == activePackage) {
-            activePackage = null
-            activeSince = 0L
-          }
-        }
-        UsageEvents.Event.SCREEN_NON_INTERACTIVE,
-        UsageEvents.Event.SCREEN_INTERACTIVE -> {
-          activePackage = null
-          activeSince = 0L
-        }
-      }
-    }
-
-    return activePackage?.let { ForegroundSession(it, activeSince) }
   }
 
   private fun isEligiblePackage(packageName: String?): Boolean {
@@ -260,8 +312,8 @@ class AndroidUsageReminderService : Service() {
     private const val SERVICE_CHANNEL_ID = "usage-reminder-service"
     private const val SERVICE_NOTIFICATION_ID = 502
     private const val USAGE_CHECK_INTERVAL_MS = 1_000L
-    private const val TEST_USAGE_DURATION_MS = 10_000L
-    private const val EVENT_LOOKBACK_MS = 2_000L
+    private const val EVENT_LOOKBACK_MS = 15_000L
+    private const val MAX_RETAINED_EVENT_IDS = 512
     private const val TAG = "AndroidUsageReminder"
     private val nextReviewNotificationId = AtomicInteger(1_000)
 
@@ -297,8 +349,12 @@ class AndroidUsageReminderService : Service() {
         return
       }
       createNotificationChannel(context)
-      val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-      if (launchIntent == null) {
+      val launchIntent = if (limit == null) {
+        context.packageManager.getLaunchIntentForPackage(context.packageName)
+      } else {
+        studyIntent(context, limit)
+      }
+      if (launchIntent == null || launchIntent.resolveActivity(context.packageManager) == null) {
         Log.e(TAG, "Review notification skipped: launch intent is unavailable")
         return
       }
@@ -322,6 +378,12 @@ class AndroidUsageReminderService : Service() {
       val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       manager.notify(id, notification)
       Log.i(TAG, "Review notification posted: id=$id limit=$limit")
+    }
+
+    private fun studyIntent(context: Context, limit: Int): Intent {
+      return Intent(Intent.ACTION_VIEW, Uri.parse("vocabulary://study/intervention?limit=$limit"))
+        .setPackage(context.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     }
 
     private fun notificationBuilder(context: Context, channelId: String): Notification.Builder {
