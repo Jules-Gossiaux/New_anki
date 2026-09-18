@@ -10,6 +10,8 @@
 - Replaced the unreliable Android `USER_PRESENT` broadcast with observed Usage Access lock-state events for reminder detection.
 - Validated repeatable Android unlock and eligible app-use reminder notifications on the OnePlus test device; reboot, force-stop and battery-policy cases remain pending.
 - Documented intervention-study choices: optional priority deck, up-to limits, abandoned sessions and notification fallback when Android blocks background screen launches.
+- Added the Android intervention study route, including notification deep links, optional priority-deck selection and notification/direct-open preferences while reusing the existing FSRS review flow.
+- Made intervention delivery fall back reliably to notifications when Vocabulary is not foregrounded, with diagnostic logs for permission, mode and delivery decisions.
 
 ### Added
 

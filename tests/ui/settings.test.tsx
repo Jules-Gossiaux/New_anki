@@ -2,7 +2,9 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../../src/app/settings';
 
 jest.mock('expo-sqlite', () => ({
-  useSQLiteContext: jest.fn(() => ({})),
+  useSQLiteContext: jest.fn(() => ({
+    getAllAsync: jest.fn(async () => []),
+  })),
 }));
 
 jest.mock('expo-router', () => ({
@@ -16,6 +18,8 @@ jest.mock('../../src/infrastructure/repositories/reviewSettingsRepository', () =
       reviewsPerDay: 200,
       learningSteps: ['1m', '10m'],
       relearningSteps: ['10m'],
+      priorityDeckId: null,
+      interventionPromptMode: 'notification',
     }),
     save: jest.fn().mockResolvedValue(undefined),
   })),

@@ -33,7 +33,7 @@ function formatDue(iso: string, now = new Date()): string {
 }
 
 export default function StudyScreen() {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, limit } = useLocalSearchParams<{ deckId: string; limit?: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
@@ -49,6 +49,14 @@ export default function StudyScreen() {
   const [previews, setPreviews] = useState<SchedulingPreview | null>(null);
   const [noteDetails, setNoteDetails] = useState<Note | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
+  const isIntervention = deckId === 'intervention';
+  const interventionLimit = isIntervention
+    ? Number(Array.isArray(limit) ? limit[0] : limit) === 5
+      ? 5
+      : 3
+    : null;
+  const [reviewedInSession, setReviewedInSession] = useState(0);
+  const [sessionComplete, setSessionComplete] = useState(false);
   const now = new Date(clock);
   const selection = selectNextStudyCard(cards, now);
   const card = selection.card;
@@ -56,29 +64,60 @@ export default function StudyScreen() {
   const nextFutureCard = selection.isEarly ? card : undefined;
   const remainingSeconds = 0;
 
-  const load = useCallback(async () => {
-    if (!deckId) return;
-    const deck = await new DeckRepository(db).getById(deckId);
-    if (!deck) {
-      router.back();
-      return;
-    }
-    setDeckName(deck.name);
-    const currentSettings = await settingsRepository.get();
-    const currentNow = new Date();
-    const [queue, progress] = await Promise.all([
-      cardRepository.listStudyQueue(deckId, currentNow),
-      cardRepository.getDailyStudyProgress(currentNow),
-    ]);
-    const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
-    setSettings(currentSettings);
-    setCards(limitedQueue);
-    setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
-    setRevealed(false);
-  }, [cardRepository, db, deckId, router, settingsRepository]);
+  const load = useCallback(
+    async (resetSession = false) => {
+      if (!deckId) return;
+      let queue: Card[];
+      if (isIntervention) {
+        const decks = await new DeckRepository(db).listAll();
+        const rootDecks = decks.filter((deck) => deck.parentId === null);
+        const currentSettings = await settingsRepository.get();
+        const priorityDeck = currentSettings.priorityDeckId
+          ? decks.find((deck) => deck.id === currentSettings.priorityDeckId)
+          : undefined;
+        const queueSources = priorityDeck
+          ? [priorityDeck, ...rootDecks.filter((deck) => deck.id !== priorityDeck.id)]
+          : rootDecks;
+        const queues = await Promise.all(
+          queueSources.map((source) => cardRepository.listStudyQueue(source.id, new Date())),
+        );
+        queue = [...new Map(queues.flat().map((card) => [card.id, card])).values()];
+        setDeckName('Révision express');
+        const progress = await cardRepository.getDailyStudyProgress(new Date());
+        const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
+        setSettings(currentSettings);
+        setCards(interventionLimit ? limitedQueue.slice(0, interventionLimit) : limitedQueue);
+        setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
+      } else {
+        const deck = await new DeckRepository(db).getById(deckId);
+        if (!deck) {
+          router.back();
+          return;
+        }
+        setDeckName(deck.name);
+        const currentSettings = await settingsRepository.get();
+        const currentNow = new Date();
+        const [loadedQueue, progress] = await Promise.all([
+          cardRepository.listStudyQueue(deckId, currentNow),
+          cardRepository.getDailyStudyProgress(currentNow),
+        ]);
+        queue = loadedQueue;
+        const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
+        setSettings(currentSettings);
+        setCards(limitedQueue);
+        setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
+      }
+      if (resetSession) {
+        setReviewedInSession(0);
+        setSessionComplete(false);
+      }
+      setRevealed(false);
+    },
+    [cardRepository, db, deckId, interventionLimit, isIntervention, router, settingsRepository],
+  );
 
   useEffect(() => {
-    void load();
+    void load(true);
   }, [load]);
 
   useEffect(() => {
@@ -118,7 +157,14 @@ export default function StudyScreen() {
     setSubmitting(true);
     try {
       await new ReviewCard(db, scheduler).execute(card.id, rating);
-      await load();
+      if (isIntervention && interventionLimit && reviewedInSession + 1 >= interventionLimit) {
+        setReviewedInSession((count) => count + 1);
+        setSessionComplete(true);
+        setCards([]);
+      } else {
+        setReviewedInSession((count) => count + 1);
+        await load();
+      }
     } catch (error) {
       Alert.alert(
         'Impossible d’enregistrer la révision',
@@ -141,13 +187,26 @@ export default function StudyScreen() {
             <Text style={styles.title}>{deckName}</Text>
           </View>
           <Text style={styles.counter}>
-            {cards.length} restante{cards.length === 1 ? '' : 's'}
+            {isIntervention
+              ? `${Math.min(reviewedInSession, interventionLimit ?? 0)}/${interventionLimit}`
+              : `${cards.length} restante${cards.length === 1 ? '' : 's'}`}
           </Text>
         </View>
 
         {!card ? (
           <View style={styles.empty}>
-            {isDailyLimitReached ? (
+            {isIntervention && sessionComplete ? (
+              <>
+                <Text style={styles.emptyIcon}>✓</Text>
+                <Text style={styles.emptyTitle}>Session terminée</Text>
+                <Text style={styles.emptyText}>
+                  Tu as révisé {reviewedInSession} carte{reviewedInSession === 1 ? '' : 's'}.
+                </Text>
+                <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+                  <Text style={styles.secondaryButtonText}>Retour</Text>
+                </Pressable>
+              </>
+            ) : isDailyLimitReached ? (
               <>
                 <Text style={styles.emptyIcon}>✓</Text>
                 <Text style={styles.emptyTitle}>Limite quotidienne atteinte</Text>
@@ -168,8 +227,10 @@ export default function StudyScreen() {
             ) : (
               <>
                 <Text style={styles.emptyIcon}>✓</Text>
-                <Text style={styles.emptyTitle}>Tout est à jour</Text>
-                <Text style={styles.emptyText}>Aucune carte nouvelle ou due dans ce deck.</Text>
+                <Text style={styles.emptyTitle}>Aucune carte disponible</Text>
+                <Text style={styles.emptyText}>
+                  Aucune carte nouvelle ou due n’est disponible pour cette session.
+                </Text>
                 <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
                   <Text style={styles.secondaryButtonText}>Retour au deck</Text>
                 </Pressable>
