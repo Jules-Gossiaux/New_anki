@@ -77,6 +77,40 @@ describe('studyQueue', () => {
     expect(selection.isEarly).toBe(false);
   });
 
+  it('avoids showing two cards from the same note when another note is available', () => {
+    const firstDirection = card('first-direction', CARD_STATES.new, null);
+    const secondDirection = {
+      ...card('second-direction', CARD_STATES.new, null),
+      noteId: firstDirection.noteId,
+    };
+    const otherNote = { ...card('other-note', CARD_STATES.new, null), noteId: 'other-note-id' };
+
+    expect(selectNextStudyCard([firstDirection, secondDirection, otherNote], now).card?.id).toBe(
+      'first-direction',
+    );
+    expect(
+      selectNextStudyCard([firstDirection, secondDirection, otherNote], now, firstDirection.noteId)
+        .card?.id,
+    ).toBe('other-note');
+  });
+
+  it('allows consecutive cards from the same note when no other note remains', () => {
+    const firstDirection = card('first-direction', CARD_STATES.new, null);
+    const secondDirection = {
+      ...card('second-direction', CARD_STATES.new, null),
+      noteId: firstDirection.noteId,
+    };
+
+    expect(
+      selectNextStudyCard(
+        [firstDirection, secondDirection],
+        now,
+        firstDirection.noteId,
+        firstDirection.id,
+      ).card?.id,
+    ).toBe('second-direction');
+  });
+
   it('applies global daily limits while preserving queue order', () => {
     const cards = [
       card('review-1', CARD_STATES.review, '2026-09-16T07:00:00.000Z'),
