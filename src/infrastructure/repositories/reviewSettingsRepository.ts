@@ -14,6 +14,9 @@ const keys = {
   priorityDeckId: 'review.priority_deck_id',
   interventionPromptMode: 'review.intervention_prompt_mode',
   usageReminderMinutes: 'review.usage_reminder_minutes',
+  unlockInterventionCards: 'review.unlock_intervention_cards',
+  appUsageInterventionCards: 'review.app_usage_intervention_cards',
+  showStudyNotes: 'review.show_study_notes',
 } as const;
 
 export class ReviewSettingsRepository {
@@ -21,7 +24,7 @@ export class ReviewSettingsRepository {
 
   public async get(): Promise<ReviewSettings> {
     const rows = await this.db.getAllAsync<{ key: string; value: string }>(
-      'SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?, ?)',
+      'SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       keys.newCardsPerDay,
       keys.reviewsPerDay,
       keys.learningSteps,
@@ -29,6 +32,9 @@ export class ReviewSettingsRepository {
       keys.priorityDeckId,
       keys.interventionPromptMode,
       keys.usageReminderMinutes,
+      keys.unlockInterventionCards,
+      keys.appUsageInterventionCards,
+      keys.showStudyNotes,
     );
     const values = new Map(rows.map((row) => [row.key, row.value]));
     return validateReviewSettings({
@@ -60,6 +66,15 @@ export class ReviewSettingsRepository {
         values.get(keys.usageReminderMinutes),
         DEFAULT_REVIEW_SETTINGS.usageReminderMinutes,
       ),
+      unlockInterventionCards: this.numberValue(
+        values.get(keys.unlockInterventionCards),
+        DEFAULT_REVIEW_SETTINGS.unlockInterventionCards,
+      ),
+      appUsageInterventionCards: this.numberValue(
+        values.get(keys.appUsageInterventionCards),
+        DEFAULT_REVIEW_SETTINGS.appUsageInterventionCards,
+      ),
+      showStudyNotes: values.get(keys.showStudyNotes) !== 'false',
     });
   }
 
@@ -74,6 +89,9 @@ export class ReviewSettingsRepository {
       [keys.priorityDeckId, validated.priorityDeckId ?? ''],
       [keys.interventionPromptMode, validated.interventionPromptMode],
       [keys.usageReminderMinutes, String(validated.usageReminderMinutes)],
+      [keys.unlockInterventionCards, String(validated.unlockInterventionCards)],
+      [keys.appUsageInterventionCards, String(validated.appUsageInterventionCards)],
+      [keys.showStudyNotes, String(validated.showStudyNotes)],
     ];
     await this.db.execAsync('BEGIN IMMEDIATE;');
     try {

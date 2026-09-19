@@ -27,6 +27,7 @@ The intervention study screen uses all decks by default, or an optional global p
 
 The existing study engine remains the only scheduling engine. Any intervention must launch or offer the existing review flow and must not create a separate FSRS path.
 
+Global settings also control the number of cards requested by unlock and application-use interventions, and whether examples and extra information are displayed during study. These are presentation/session-size settings only and do not modify persisted notes or FSRS scheduling.
 Study queues now prefer a different note after each card, so the two directions of a note are not shown consecutively when another note is available. The existing due order, availability rules and FSRS behavior are unchanged; repetition is allowed when only one note remains.
 
 The MVP is now closed for the supported Android scope. Follow-up hardening includes repeated validation after reboot, force-stop and OEM battery restrictions, selected-application configuration, and Google Play policy review. These items must not be presented as cross-platform guarantees.

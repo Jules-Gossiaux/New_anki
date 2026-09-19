@@ -50,11 +50,7 @@ export default function StudyScreen() {
   const [noteDetails, setNoteDetails] = useState<Note | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const isIntervention = deckId === 'intervention';
-  const interventionLimit = isIntervention
-    ? Number(Array.isArray(limit) ? limit[0] : limit) === 5
-      ? 5
-      : 3
-    : null;
+  const interventionLimit = isIntervention ? parseInterventionLimit(limit) : null;
   const [reviewedInSession, setReviewedInSession] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [previousNoteId, setPreviousNoteId] = useState<string | undefined>();
@@ -259,10 +255,12 @@ export default function StudyScreen() {
                 <>
                   <View style={styles.divider} />
                   <Text style={styles.back}>{cardSides?.answer}</Text>
-                  {noteDetails?.example && (
+                  {settings.showStudyNotes && noteDetails?.example && (
                     <Text style={styles.example}>{noteDetails.example}</Text>
                   )}
-                  {noteDetails?.extra && <Text style={styles.extra}>{noteDetails.extra}</Text>}
+                  {settings.showStudyNotes && noteDetails?.extra && (
+                    <Text style={styles.extra}>{noteDetails.extra}</Text>
+                  )}
                   {tags.length > 0 && (
                     <View style={styles.studyTags}>
                       {tags.map((tag) => (
@@ -299,6 +297,12 @@ export default function StudyScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function parseInterventionLimit(limit: string | string[] | undefined): number {
+  const raw = Array.isArray(limit) ? limit[0] : limit;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 20 ? parsed : 3;
 }
 
 const styles = StyleSheet.create({

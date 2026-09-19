@@ -52,6 +52,12 @@ The Android implementation uses an opt-in visible foreground service. It polls U
 
 The intervention study uses all decks by default, with an optional global priority deck that takes precedence when selected. A trigger starts a session with up to three cards after unlock or up to five cards after eligible app use; if fewer eligible cards are available, it uses the smaller number. Leaving a session abandons that session, and the next trigger starts a new one. The user may choose a notification, a reminder prompt or direct opening. The prompt does not implement study logic; pressing `Commencer` opens the existing study route after an explicit user action. Both prompt and direct-opening modes fall back to a notification when their Android capability is unavailable.
 
+## ADR-0013 - Configurable intervention size and study-note visibility (accepted)
+
+The number of cards in phone-triggered sessions is global and configurable independently for unlocks and eligible application usage. The defaults remain three cards after unlock and five cards after application usage, with bounded values from one to twenty. The normal daily limits and the existing FSRS engine still apply.
+
+Study sessions also expose a global preference to show or hide the note's example and extra-information fields after revealing an answer. Hiding is presentation-only: the values remain persisted, editable and importable. Tags and the front/back answer remain unaffected.
+
 ## ADR-0012 - Avoid consecutive cards from the same note (accepted)
 
 When a note has both study directions enabled, its cards must not normally be presented consecutively because the second direction can reveal the answer from the first. After each selection, the study queue prefers a card from a different note while preserving the existing availability and due-order priorities. If every remaining candidate belongs to the previous note, consecutive cards are allowed because no valid separation is possible. This is a queue-ordering policy only; it does not change FSRS state, scheduling or daily counters.

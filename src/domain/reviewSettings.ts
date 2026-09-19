@@ -9,6 +9,9 @@ export type ReviewSettings = {
   priorityDeckId: string | null;
   interventionPromptMode: InterventionPromptMode;
   usageReminderMinutes: number;
+  unlockInterventionCards: number;
+  appUsageInterventionCards: number;
+  showStudyNotes: boolean;
 };
 
 export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
@@ -19,6 +22,9 @@ export const DEFAULT_REVIEW_SETTINGS: ReviewSettings = {
   priorityDeckId: null,
   interventionPromptMode: 'notification',
   usageReminderMinutes: 3,
+  unlockInterventionCards: 3,
+  appUsageInterventionCards: 5,
+  showStudyNotes: true,
 };
 
 export function validateReviewSettings(settings: ReviewSettings): ReviewSettings {
@@ -53,6 +59,19 @@ export function validateReviewSettings(settings: ReviewSettings): ReviewSettings
       1,
       60,
     ),
+    unlockInterventionCards: integerInRange(
+      settings.unlockInterventionCards,
+      'Unlock intervention cards',
+      1,
+      20,
+    ),
+    appUsageInterventionCards: integerInRange(
+      settings.appUsageInterventionCards,
+      'App usage intervention cards',
+      1,
+      20,
+    ),
+    showStudyNotes: settings.showStudyNotes,
   };
 }
 

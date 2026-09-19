@@ -83,6 +83,20 @@ class AndroidUsageDiagnosticsModule : Module() {
       reminderPreferences().edit().putInt(KEY_USAGE_REMINDER_MINUTES, minutes.toInt()).apply()
       Log.i(TAG, "Usage reminder duration: ${minutes.toInt()} minutes")
     }
+
+    Function("setInterventionCardLimits") { unlockCards: Double, appUsageCards: Double ->
+      require(unlockCards >= MIN_INTERVENTION_CARDS && unlockCards <= MAX_INTERVENTION_CARDS) {
+        "Unlock intervention cards must be between $MIN_INTERVENTION_CARDS and $MAX_INTERVENTION_CARDS."
+      }
+      require(appUsageCards >= MIN_INTERVENTION_CARDS && appUsageCards <= MAX_INTERVENTION_CARDS) {
+        "App usage intervention cards must be between $MIN_INTERVENTION_CARDS and $MAX_INTERVENTION_CARDS."
+      }
+      reminderPreferences().edit()
+        .putInt(KEY_UNLOCK_INTERVENTION_CARDS, unlockCards.toInt())
+        .putInt(KEY_APP_USAGE_INTERVENTION_CARDS, appUsageCards.toInt())
+        .apply()
+      Log.i(TAG, "Intervention card limits: unlock=${unlockCards.toInt()} appUsage=${appUsageCards.toInt()}")
+    }
   }
 
   private fun requireContext(): Context {
@@ -166,6 +180,12 @@ class AndroidUsageDiagnosticsModule : Module() {
     const val DEFAULT_USAGE_REMINDER_MINUTES = 3
     const val MIN_USAGE_REMINDER_MINUTES = 1
     const val MAX_USAGE_REMINDER_MINUTES = 60
+    const val KEY_UNLOCK_INTERVENTION_CARDS = "unlock_intervention_cards"
+    const val KEY_APP_USAGE_INTERVENTION_CARDS = "app_usage_intervention_cards"
+    const val DEFAULT_UNLOCK_INTERVENTION_CARDS = 3
+    const val DEFAULT_APP_USAGE_INTERVENTION_CARDS = 5
+    const val MIN_INTERVENTION_CARDS = 1
+    const val MAX_INTERVENTION_CARDS = 20
     const val TAG = "AndroidUsageReminder"
   }
 }

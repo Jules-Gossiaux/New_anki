@@ -117,10 +117,14 @@ class AndroidUsageReminderService : Service() {
       Log.i(TAG, "Unlock ignored: no available cards")
       return
     }
-    Log.i(TAG, "Phone unlocked from Usage Access event: sending 3-card notification")
+    val limit = interventionCardLimit(
+      AndroidUsageDiagnosticsModule.KEY_UNLOCK_INTERVENTION_CARDS,
+      AndroidUsageDiagnosticsModule.DEFAULT_UNLOCK_INTERVENTION_CARDS,
+    )
+    Log.i(TAG, "Phone unlocked from Usage Access event: sending $limit-card notification")
     preferences().edit().putLong(AndroidUsageDiagnosticsModule.KEY_LAST_UNLOCK_AT, unlockedAt).apply()
     currentUnlockAt = unlockedAt
-    promptForReviews(3, "Révision disponible", "3 cartes sont prêtes à être révisées.")
+    promptForReviews(limit, "Révision disponible", "$limit cartes sont prêtes à être révisées.")
   }
 
   private fun onScreenLocked() {
@@ -162,8 +166,12 @@ class AndroidUsageReminderService : Service() {
       return
     }
     if (now - session.startedAt >= usageReminderDurationMs() && notifiedUsageSessionStartedAt != session.startedAt) {
-      Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending 5-card notification")
-      promptForReviews(5, "Révision après utilisation", "5 cartes sont prêtes à être révisées.")
+      val limit = interventionCardLimit(
+        AndroidUsageDiagnosticsModule.KEY_APP_USAGE_INTERVENTION_CARDS,
+        AndroidUsageDiagnosticsModule.DEFAULT_APP_USAGE_INTERVENTION_CARDS,
+      )
+      Log.i(TAG, "Eligible usage threshold reached for ${session.packageName}: sending $limit-card notification")
+      promptForReviews(limit, "Révision après utilisation", "$limit cartes sont prêtes à être révisées.")
       notifiedUsageSessionStartedAt = session.startedAt
     }
   }
@@ -198,6 +206,13 @@ class AndroidUsageReminderService : Service() {
       AndroidUsageDiagnosticsModule.MAX_USAGE_REMINDER_MINUTES,
     )
     return minutes * 60_000L
+  }
+
+  private fun interventionCardLimit(key: String, defaultValue: Int): Int {
+    return preferences().getInt(key, defaultValue).coerceIn(
+      AndroidUsageDiagnosticsModule.MIN_INTERVENTION_CARDS,
+      AndroidUsageDiagnosticsModule.MAX_INTERVENTION_CARDS,
+    )
   }
 
   private fun promptForReviews(limit: Int, title: String, message: String) {

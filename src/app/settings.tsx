@@ -72,6 +72,12 @@ export default function SettingsScreen() {
       if (typeof AndroidUsageDiagnostics?.setUsageReminderDuration === 'function') {
         AndroidUsageDiagnostics.setUsageReminderDuration(settings.usageReminderMinutes);
       }
+      if (typeof AndroidUsageDiagnostics?.setInterventionCardLimits === 'function') {
+        AndroidUsageDiagnostics.setInterventionCardLimits(
+          settings.unlockInterventionCards,
+          settings.appUsageInterventionCards,
+        );
+      }
       showToast(
         Platform.OS === 'android'
           ? 'Réglages enregistrés. Après un arrêt forcé, rouvre Vocabulary pour réactiver les rappels.'
@@ -140,6 +146,16 @@ export default function SettingsScreen() {
         />
         <Text style={styles.sectionTitle}>Révisions après utilisation</Text>
         <SettingField
+          label="Cartes après déverrouillage"
+          value={settings.unlockInterventionCards}
+          onChange={(value) => setSettings({ ...settings, unlockInterventionCards: value })}
+        />
+        <SettingField
+          label="Cartes après utilisation d’une application"
+          value={settings.appUsageInterventionCards}
+          onChange={(value) => setSettings({ ...settings, appUsageInterventionCards: value })}
+        />
+        <SettingField
           label="Durée avant rappel après utilisation (minutes)"
           value={settings.usageReminderMinutes}
           onChange={(value) => setSettings({ ...settings, usageReminderMinutes: value })}
@@ -172,6 +188,25 @@ export default function SettingsScreen() {
           Le rappel nécessite l’autorisation Android « afficher par-dessus les autres applications
           ».
         </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Informations complémentaires pendant l’étude</Text>
+          <InfoButton
+            title="Informations complémentaires"
+            message="Ce réglage masque uniquement l’exemple et les informations supplémentaires sur les cartes pendant l’étude. Les données restent enregistrées et modifiables dans l’éditeur."
+          />
+        </View>
+        <View style={styles.choiceList}>
+          <ChoiceButton
+            label="Afficher les exemples et informations supplémentaires"
+            selected={settings.showStudyNotes}
+            onPress={() => setSettings({ ...settings, showStudyNotes: true })}
+          />
+          <ChoiceButton
+            label="Masquer les exemples et informations supplémentaires"
+            selected={!settings.showStudyNotes}
+            onPress={() => setSettings({ ...settings, showStudyNotes: false })}
+          />
+        </View>
         <View style={styles.choiceList}>
           <ChoiceButton
             label="Notification"
