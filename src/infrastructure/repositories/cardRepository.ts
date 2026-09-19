@@ -1,10 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { CARD_TEMPLATES, type Card, type CreateCardInput } from '../../domain/cards';
-import {
-  DEFAULT_REVIEW_SETTINGS,
-  getAvailableNewCardCount,
-  getAvailableReviewCardCount,
-} from '../../domain/reviewSettings';
+import { getAvailableNewCardCount, getAvailableReviewCardCount } from '../../domain/reviewSettings';
+import type { DailyCardLimits } from '../../domain/decks';
 import type { DatabaseClient } from '../database/client';
 
 type CardRow = {
@@ -207,7 +204,11 @@ export class CardRepository {
     return rows.map(toCard);
   }
 
-  public async getStudyCounts(deckId: string, now: Date): Promise<StudyCounts> {
+  public async getStudyCounts(
+    deckId: string,
+    now: Date,
+    limits: DailyCardLimits,
+  ): Promise<StudyCounts> {
     const today = Math.floor(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000,
     );
@@ -240,52 +241,51 @@ export class CardRepository {
       now.toISOString(),
       today,
     );
-    const dailyNewLimit = await this.db.getFirstAsync<{ value: string }>(
-      'SELECT value FROM app_settings WHERE key = ?',
-      'review.new_cards_per_day',
-    );
-    const configuredLimit = Number(dailyNewLimit?.value);
-    const dailyReviewLimit = await this.db.getFirstAsync<{ value: string }>(
-      'SELECT value FROM app_settings WHERE key = ?',
-      'review.reviews_per_day',
-    );
-    const configuredReviewLimit = Number(dailyReviewLimit?.value);
-    const progress = await this.getDailyStudyProgress(now);
+    const progress = await this.getDailyStudyProgress(now, deckId);
     const counts = {
       total: row?.total ?? 0,
-      new: getAvailableNewCardCount(
-        row?.new ?? 0,
-        Number.isFinite(configuredLimit) ? configuredLimit : DEFAULT_REVIEW_SETTINGS.newCardsPerDay,
-        progress.newCards,
-      ),
-      today: getAvailableReviewCardCount(
-        row?.today ?? 0,
-        Number.isFinite(configuredReviewLimit)
-          ? configuredReviewLimit
-          : DEFAULT_REVIEW_SETTINGS.reviewsPerDay,
-        progress.reviews,
-      ),
+      new: getAvailableNewCardCount(row?.new ?? 0, limits.newCardsPerDay, progress.newCards),
+      today: getAvailableReviewCardCount(row?.today ?? 0, limits.reviewsPerDay, progress.reviews),
       future: row?.future ?? 0,
     };
     return counts;
   }
 
-  public async getDailyStudyProgress(now: Date): Promise<DailyStudyProgress> {
+  public async getDailyStudyProgress(now: Date, deckId?: string): Promise<DailyStudyProgress> {
     const start = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     ).toISOString();
     const end = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
     ).toISOString();
-    const row = await this.db.getFirstAsync<DailyStudyProgress>(
-      `SELECT
-         COUNT(DISTINCT CASE WHEN state_before = 0 THEN card_id END) AS newCards,
-         COUNT(DISTINCT CASE WHEN state_before <> 0 THEN card_id END) AS reviews
-       FROM review_logs
-       WHERE reviewed_at >= ? AND reviewed_at < ?`,
-      start,
-      end,
-    );
+    const row = deckId
+      ? await this.db.getFirstAsync<DailyStudyProgress>(
+          `WITH RECURSIVE descendants(id) AS (
+             SELECT id FROM decks WHERE id = ? AND deleted_at IS NULL
+             UNION ALL
+             SELECT decks.id FROM decks JOIN descendants ON decks.parent_id = descendants.id
+             WHERE decks.deleted_at IS NULL
+           )
+           SELECT
+             COUNT(DISTINCT CASE WHEN review_logs.state_before = 0 THEN review_logs.card_id END) AS newCards,
+             COUNT(DISTINCT CASE WHEN review_logs.state_before <> 0 THEN review_logs.card_id END) AS reviews
+           FROM review_logs
+           JOIN cards ON cards.id = review_logs.card_id
+           JOIN descendants ON descendants.id = cards.deck_id
+           WHERE review_logs.reviewed_at >= ? AND review_logs.reviewed_at < ?`,
+          deckId,
+          start,
+          end,
+        )
+      : await this.db.getFirstAsync<DailyStudyProgress>(
+          `SELECT
+             COUNT(DISTINCT CASE WHEN state_before = 0 THEN card_id END) AS newCards,
+             COUNT(DISTINCT CASE WHEN state_before <> 0 THEN card_id END) AS reviews
+           FROM review_logs
+           WHERE reviewed_at >= ? AND reviewed_at < ?`,
+          start,
+          end,
+        );
     return { newCards: row?.newCards ?? 0, reviews: row?.reviews ?? 0 };
   }
 

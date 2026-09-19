@@ -15,7 +15,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(latestSchemaVersion).toBe(5);
+    expect(latestSchemaVersion).toBe(6);
     expect(executed).toContain('BEGIN IMMEDIATE;');
     expect(executed).toContain('COMMIT;');
     expect(executed.at(-1)).toBe('COMMIT;');
@@ -26,6 +26,7 @@ describe('database migrations', () => {
     expect(executed.some((source) => source.includes('review.intervention_prompt_mode'))).toBe(
       true,
     );
+    expect(executed.some((source) => source.includes('deck_daily_limits'))).toBe(true);
   });
 
   it('does not rerun migrations that are already applied', async () => {

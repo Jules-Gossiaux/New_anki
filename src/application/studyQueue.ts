@@ -1,5 +1,5 @@
 import type { Card } from '../domain/cards';
-import type { ReviewSettings } from '../domain/reviewSettings';
+import type { DailyCardLimits } from '../domain/decks';
 
 export function utcDay(date: Date): number {
   return Math.floor(
@@ -67,7 +67,7 @@ export function orderStudyQueue(cards: Card[]): Card[] {
 
 export function applyDailyLimits(
   cards: Card[],
-  settings: ReviewSettings,
+  settings: DailyCardLimits,
   progress: { newCards: number; reviews: number },
 ): Card[] {
   let newCards = 0;

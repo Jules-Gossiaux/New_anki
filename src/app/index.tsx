@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,10 +19,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Deck } from '../domain/decks';
 import { CardRepository, type StudyCounts } from '../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../infrastructure/repositories/deckRepository';
+import { ReviewSettingsRepository } from '../infrastructure/repositories/reviewSettingsRepository';
 import { importAnkiCollection } from '../application/importAnkiPackage';
 import { previewAnkiPackage, type AnkiPreview } from '../infrastructure/import/anki/preview';
 
-type Draft = { name: string; parentId: string | null };
+type Draft = {
+  name: string;
+  parentId: string | null;
+  newCardsPerDay: number | null;
+  reviewsPerDay: number | null;
+};
 type VisibleDeck = Deck & { depth: number };
 
 function flattenDecks(decks: Deck[]): VisibleDeck[] {
@@ -41,24 +48,35 @@ export default function DecksScreen() {
   const router = useRouter();
   const repository = useMemo(() => new DeckRepository(db), [db]);
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
+  const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [studyCounts, setStudyCounts] = useState<Record<string, StudyCounts>>({});
   const [isModalVisible, setModalVisible] = useState(false);
   const [unsupportedMediaMessage, setUnsupportedMediaMessage] = useState<string | null>(null);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
-  const [draft, setDraft] = useState<Draft>({ name: '', parentId: null });
+  const [draft, setDraft] = useState<Draft>({
+    name: '',
+    parentId: null,
+    newCardsPerDay: null,
+    reviewsPerDay: null,
+  });
 
   const loadDecks = useCallback(async () => {
     const nextDecks = await repository.listAll();
     setDecks(nextDecks);
+    if (nextDecks.length === 0) {
+      setStudyCounts({});
+      return;
+    }
+    const globalSettings = await settingsRepository.get();
     const counts = await Promise.all(
-      nextDecks.map(
-        async (deck) =>
-          [deck.id, await cardRepository.getStudyCounts(deck.id, new Date())] as const,
-      ),
+      nextDecks.map(async (deck) => {
+        const limits = await repository.getEffectiveDailyLimits(deck.id, globalSettings);
+        return [deck.id, await cardRepository.getStudyCounts(deck.id, new Date(), limits)] as const;
+      }),
     );
     setStudyCounts(Object.fromEntries(counts));
-  }, [cardRepository, repository]);
+  }, [cardRepository, repository, settingsRepository]);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,13 +88,14 @@ export default function DecksScreen() {
 
   const openCreate = (parentId: string | null = null) => {
     setEditingDeck(null);
-    setDraft({ name: '', parentId });
+    setDraft({ name: '', parentId, newCardsPerDay: null, reviewsPerDay: null });
     setModalVisible(true);
   };
 
-  const openEdit = (deck: Deck) => {
+  const openEdit = async (deck: Deck) => {
+    const overrides = await repository.getDailyLimitOverrides(deck.id);
     setEditingDeck(deck);
-    setDraft({ name: deck.name, parentId: deck.parentId });
+    setDraft({ name: deck.name, parentId: deck.parentId, ...overrides });
     setModalVisible(true);
   };
 
@@ -87,8 +106,13 @@ export default function DecksScreen() {
 
   const saveDeck = async () => {
     try {
-      if (editingDeck) await repository.update(editingDeck.id, draft);
-      else await repository.create(draft);
+      const savedDeck = editingDeck
+        ? await repository.update(editingDeck.id, draft)
+        : await repository.create(draft);
+      await repository.setDailyLimitOverrides(savedDeck.id, {
+        newCardsPerDay: draft.newCardsPerDay,
+        reviewsPerDay: draft.reviewsPerDay,
+      });
       closeModal();
       await loadDecks();
     } catch (error) {
@@ -258,7 +282,11 @@ export default function DecksScreen() {
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalCard}>
+          <ScrollView
+            style={styles.modalCard}
+            contentContainerStyle={styles.modalCardContent}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <View>
@@ -300,6 +328,21 @@ export default function DecksScreen() {
                   />
                 ))}
             </View>
+            <Text style={styles.fieldLabel}>Limites quotidiennes du deck</Text>
+            <Text style={styles.fieldHelp}>
+              Laissez un champ vide pour hériter du parent. Un deck principal hérite des réglages
+              généraux de l’application.
+            </Text>
+            <DeckLimitField
+              label="Nouvelles cartes par jour"
+              value={draft.newCardsPerDay}
+              onChange={(value) => setDraft((current) => ({ ...current, newCardsPerDay: value }))}
+            />
+            <DeckLimitField
+              label="Cartes à réviser par jour"
+              value={draft.reviewsPerDay}
+              onChange={(value) => setDraft((current) => ({ ...current, reviewsPerDay: value }))}
+            />
             <Pressable style={styles.saveButton} onPress={() => void saveDeck()}>
               <Text style={styles.saveButtonText}>
                 {editingDeck ? 'Enregistrer' : 'Creer le deck'}
@@ -310,7 +353,7 @@ export default function DecksScreen() {
                 <Text style={styles.deleteButtonText}>Supprimer ce deck</Text>
               </Pressable>
             )}
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -442,6 +485,34 @@ function ParentOption({
       </Text>
       {selected && <Text style={styles.checkmark}>✓</Text>}
     </Pressable>
+  );
+}
+
+function DeckLimitField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <View style={styles.limitField}>
+      <Text style={styles.fieldHelp}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="number-pad"
+        placeholder="Hérité"
+        placeholderTextColor="#98A2B3"
+        value={value === null ? '' : String(value)}
+        onChangeText={(text) => {
+          const digits = text.replace(/\D/g, '');
+          onChange(digits ? Number(digits) : null);
+        }}
+        accessibilityLabel={label}
+      />
+    </View>
   );
 }
 
@@ -600,6 +671,9 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 32,
   },
+  modalCardContent: { padding: 20 },
+  fieldHelp: { color: '#667085', fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  limitField: { marginTop: 8 },
   modalHandle: {
     alignSelf: 'center',
     backgroundColor: '#D0D5DD',

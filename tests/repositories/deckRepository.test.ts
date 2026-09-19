@@ -92,4 +92,59 @@ describe('DeckRepository', () => {
     expect(execAsync).toHaveBeenNthCalledWith(2, 'ROLLBACK;');
     expect(execAsync).not.toHaveBeenCalledWith('COMMIT;');
   });
+
+  it('resolves effective limits from the global defaults through the deck hierarchy', async () => {
+    const db: DatabaseClient = {
+      execAsync: jest.fn(),
+      runAsync: jest.fn(),
+      getAllAsync: jest.fn(async () => [
+        { new_cards_per_day: 10, reviews_per_day: null, depth: 1 },
+        { new_cards_per_day: null, reviews_per_day: 35, depth: 0 },
+      ]) as DatabaseClient['getAllAsync'],
+      getFirstAsync: jest.fn(),
+    };
+
+    await expect(
+      new DeckRepository(db).getEffectiveDailyLimits('child-id', {
+        newCardsPerDay: 20,
+        reviewsPerDay: 200,
+      }),
+    ).resolves.toEqual({ newCardsPerDay: 10, reviewsPerDay: 35 });
+  });
+
+  it('stores and clears deck-specific overrides transactionally', async () => {
+    const execAsync = jest.fn();
+    const runAsync = jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 }));
+    const db: DatabaseClient = {
+      execAsync,
+      runAsync,
+      getAllAsync: jest.fn(),
+      getFirstAsync: jest.fn(),
+    };
+    const repository = new DeckRepository(db);
+
+    await repository.setDailyLimitOverrides('deck-id', {
+      newCardsPerDay: 10,
+      reviewsPerDay: null,
+    });
+    await repository.setDailyLimitOverrides('deck-id', {
+      newCardsPerDay: null,
+      reviewsPerDay: null,
+    });
+
+    expect(runAsync).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('INSERT INTO deck_daily_limits'),
+      'deck-id',
+      10,
+      null,
+      expect.any(String),
+    );
+    expect(runAsync).toHaveBeenNthCalledWith(
+      2,
+      'DELETE FROM deck_daily_limits WHERE deck_id = ?',
+      'deck-id',
+    );
+    expect(execAsync).toHaveBeenCalledWith('COMMIT;');
+  });
 });

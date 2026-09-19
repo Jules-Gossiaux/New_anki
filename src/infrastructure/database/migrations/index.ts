@@ -4,6 +4,7 @@ import { schedulerStateMigration } from './002_scheduler_state';
 import { bidirectionalCardsMigration } from './003_bidirectional_cards';
 import { ankiImportMigration } from './004_anki_import';
 import { interventionSettingsMigration } from './005_intervention_settings';
+import { deckDailyLimitsMigration } from './006_deck_daily_limits';
 
 const migrations = [
   initialMigration,
@@ -11,6 +12,7 @@ const migrations = [
   bidirectionalCardsMigration,
   ankiImportMigration,
   interventionSettingsMigration,
+  deckDailyLimitsMigration,
 ];
 
 export async function migrateDatabase(db: DatabaseClient): Promise<void> {

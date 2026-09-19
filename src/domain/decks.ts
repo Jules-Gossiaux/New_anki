@@ -7,6 +7,16 @@ export type Deck = {
   updatedAt: string;
 };
 
+export type DailyCardLimits = {
+  newCardsPerDay: number;
+  reviewsPerDay: number;
+};
+
+export type DeckDailyLimitOverrides = {
+  newCardsPerDay: number | null;
+  reviewsPerDay: number | null;
+};
+
 export type CreateDeckInput = {
   name: string;
   parentId?: string | null;
