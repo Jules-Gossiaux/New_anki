@@ -57,6 +57,7 @@ The intervention study uses all decks by default, with an optional global priori
 The number of cards in phone-triggered sessions is global and configurable independently for unlocks and eligible application usage. The defaults remain three cards after unlock and five cards after application usage, with bounded values from one to twenty. The normal daily limits and the existing FSRS engine still apply.
 
 Study sessions also expose a global preference to show or hide the note's example and extra-information fields after revealing an answer. Hiding is presentation-only: the values remain persisted, editable and importable. Tags and the front/back answer remain unaffected.
+
 ## ADR-0012 - Avoid consecutive cards from the same note (accepted)
 
 When a note has both study directions enabled, its cards must not normally be presented consecutively because the second direction can reveal the answer from the first. After each selection, the study queue prefers a card from a different note while preserving the existing availability and due-order priorities. If every remaining candidate belongs to the previous note, consecutive cards are allowed because no valid separation is possible. This is a queue-ordering policy only; it does not change FSRS state, scheduling or daily counters.
