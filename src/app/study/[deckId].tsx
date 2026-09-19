@@ -53,6 +53,8 @@ export default function StudyScreen() {
   const interventionLimit = isIntervention ? parseInterventionLimit(limit) : null;
   const [reviewedInSession, setReviewedInSession] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [previousNoteId, setPreviousNoteId] = useState<string | undefined>();
+  const [previousCardId, setPreviousCardId] = useState<string | undefined>();
   const leaveStudy = useCallback(() => {
     if (isIntervention) {
       router.replace('/');
@@ -61,7 +63,7 @@ export default function StudyScreen() {
     }
   }, [isIntervention, router]);
   const now = new Date(clock);
-  const selection = selectNextStudyCard(cards, now);
+  const selection = selectNextStudyCard(cards, now, previousNoteId, previousCardId);
   const card = selection.card;
   const cardSides = card ? getCardSides(card) : null;
   const nextFutureCard = selection.isEarly ? card : undefined;
@@ -113,6 +115,8 @@ export default function StudyScreen() {
       if (resetSession) {
         setReviewedInSession(0);
         setSessionComplete(false);
+        setPreviousNoteId(undefined);
+        setPreviousCardId(undefined);
       }
       setRevealed(false);
     },
@@ -160,6 +164,8 @@ export default function StudyScreen() {
     setSubmitting(true);
     try {
       await new ReviewCard(db, scheduler).execute(card.id, rating);
+      setPreviousNoteId(card.noteId);
+      setPreviousCardId(card.id);
       if (isIntervention && interventionLimit && reviewedInSession + 1 >= interventionLimit) {
         setReviewedInSession((count) => count + 1);
         setSessionComplete(true);

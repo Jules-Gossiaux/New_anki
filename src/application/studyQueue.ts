@@ -26,11 +26,35 @@ export function isScheduledToday(card: Card, now: Date): boolean {
 export function selectNextStudyCard(
   cards: Card[],
   now: Date,
+  previousNoteId?: string,
+  previousCardId?: string,
 ): { card: Card | null; isEarly: boolean } {
-  const available = cards.find((candidate) => isStudyCardAvailable(candidate, now));
-  if (available) return { card: available, isEarly: false };
-  const early = orderStudyQueue(cards).find((candidate) => isScheduledToday(candidate, now));
+  const available = cards.filter((candidate) => isStudyCardAvailable(candidate, now));
+  if (available.length > 0) {
+    return {
+      card: preferDifferentNote(available, previousNoteId, previousCardId) ?? null,
+      isEarly: false,
+    };
+  }
+  const early = preferDifferentNote(
+    orderStudyQueue(cards).filter((candidate) => isScheduledToday(candidate, now)),
+    previousNoteId,
+    previousCardId,
+  );
   return { card: early ?? null, isEarly: early !== undefined };
+}
+
+function preferDifferentNote(
+  cards: Card[],
+  previousNoteId?: string,
+  previousCardId?: string,
+): Card | undefined {
+  if (!previousNoteId) return cards[0];
+  return (
+    cards.find((candidate) => candidate.noteId !== previousNoteId) ??
+    cards.find((candidate) => candidate.id !== previousCardId) ??
+    cards[0]
+  );
 }
 
 export function orderStudyQueue(cards: Card[]): Card[] {

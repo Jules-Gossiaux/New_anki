@@ -23,6 +23,7 @@ Phase A: nested decks, notes/cards, vocabulary fields, tags, selectable study di
 Phase B MVP: two Android-first interventions around phone use. The implemented behavior prompts up to three vocabulary reviews after an eligible unlock and up to five reviews after each eligible phone-use sequence. The duration is configurable globally, with three minutes by default. Delivery is configurable as a notification, a small Android reminder or direct opening of the study session, with notification fallback when Android prevents the selected flow. The interventions reuse the existing study flow and handle unavailable cards, abandoned sessions and daily limits. Production hardening after force-stop, reboot, OEM battery restrictions and store-policy review remains follow-up work; iOS is deferred.
 
 Phone-triggered session sizes are configurable independently: three cards after unlock and five cards after application usage by default. Study settings also allow users to hide examples and extra information in every study session without deleting those fields.
+Study selection avoids presenting two cards from the same note consecutively when another note is available. If only cards from that note remain, consecutive directions are allowed.
 
 ## Non-goals
 
