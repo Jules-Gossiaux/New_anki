@@ -58,6 +58,12 @@ The number of cards in phone-triggered sessions is global and configurable indep
 
 Study sessions also expose a global preference to show or hide the note's example and extra-information fields after revealing an answer. Hiding is presentation-only: the values remain persisted, editable and importable. Tags and the front/back answer remain unaffected.
 
+## ADR-0014 - Per-deck daily limits with inheritance (accepted)
+
+Each deck may override the global daily limit for new cards and/or reviews independently. An empty override means inheritance: a root deck inherits the global application setting, while a child deck inherits the effective value of its parent. Limits are resolved from the root toward the selected deck, so a child override only replaces the field it explicitly defines.
+
+The effective limit applies to the selected deck's complete subtree and its daily progress is counted within that same scope. This keeps the limits shown on deck cards consistent with the cards offered when studying that deck. The values affect study availability only; they do not modify FSRS state or review history.
+
 ## ADR-0012 - Avoid consecutive cards from the same note (accepted)
 
 When a note has both study directions enabled, its cards must not normally be presented consecutively because the second direction can reveal the answer from the first. After each selection, the study queue prefers a card from a different note while preserving the existing availability and due-order priorities. If every remaining candidate belongs to the previous note, consecutive cards are allowed because no valid separation is possible. This is a queue-ordering policy only; it does not change FSRS state, scheduling or daily counters.

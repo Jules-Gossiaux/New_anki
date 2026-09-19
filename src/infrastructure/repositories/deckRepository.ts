@@ -6,6 +6,8 @@ import {
   type Deck,
   type UpdateDeckInput,
 } from '../../domain/decks';
+import { resolveDailyCardLimits, validateDeckDailyLimitOverrides } from '../../domain/deckLimits';
+import type { DailyCardLimits, DeckDailyLimitOverrides } from '../../domain/decks';
 
 type DeckRow = {
   id: string;
@@ -65,6 +67,84 @@ export class DeckRepository {
       id,
     );
     return row ? toDeck(row) : null;
+  }
+
+  public async getDailyLimitOverrides(id: string): Promise<DeckDailyLimitOverrides> {
+    const row = await this.db.getFirstAsync<{
+      new_cards_per_day: number | null;
+      reviews_per_day: number | null;
+    }>(
+      `SELECT new_cards_per_day, reviews_per_day
+       FROM deck_daily_limits WHERE deck_id = ?`,
+      id,
+    );
+    return {
+      newCardsPerDay: row?.new_cards_per_day ?? null,
+      reviewsPerDay: row?.reviews_per_day ?? null,
+    };
+  }
+
+  public async getEffectiveDailyLimits(
+    id: string,
+    globalLimits: DailyCardLimits,
+  ): Promise<DailyCardLimits> {
+    const rows = await this.db.getAllAsync<{
+      new_cards_per_day: number | null;
+      reviews_per_day: number | null;
+      depth: number;
+    }>(
+      `WITH RECURSIVE ancestors(id, parent_id, depth) AS (
+         SELECT id, parent_id, 0 FROM decks WHERE id = ? AND deleted_at IS NULL
+         UNION ALL
+         SELECT decks.id, decks.parent_id, ancestors.depth + 1
+         FROM decks JOIN ancestors ON decks.id = ancestors.parent_id
+         WHERE decks.deleted_at IS NULL
+       )
+       SELECT limits.new_cards_per_day, limits.reviews_per_day,
+              ancestors.depth
+       FROM ancestors
+       LEFT JOIN deck_daily_limits limits ON limits.deck_id = ancestors.id
+       ORDER BY ancestors.depth DESC`,
+      id,
+    );
+    return resolveDailyCardLimits(
+      rows.map((row) => ({
+        newCardsPerDay: row.new_cards_per_day ?? null,
+        reviewsPerDay: row.reviews_per_day ?? null,
+      })),
+      globalLimits,
+    );
+  }
+
+  public async setDailyLimitOverrides(
+    id: string,
+    overrides: DeckDailyLimitOverrides,
+  ): Promise<void> {
+    const validated = validateDeckDailyLimitOverrides(overrides);
+    const updatedAt = now();
+    await this.db.execAsync('BEGIN IMMEDIATE;');
+    try {
+      if (validated.newCardsPerDay === null && validated.reviewsPerDay === null) {
+        await this.db.runAsync('DELETE FROM deck_daily_limits WHERE deck_id = ?', id);
+      } else {
+        await this.db.runAsync(
+          `INSERT INTO deck_daily_limits (deck_id, new_cards_per_day, reviews_per_day, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(deck_id) DO UPDATE SET
+             new_cards_per_day = excluded.new_cards_per_day,
+             reviews_per_day = excluded.reviews_per_day,
+             updated_at = excluded.updated_at`,
+          id,
+          validated.newCardsPerDay,
+          validated.reviewsPerDay,
+          updatedAt,
+        );
+      }
+      await this.db.execAsync('COMMIT;');
+    } catch (error) {
+      await this.db.execAsync('ROLLBACK;');
+      throw error;
+    }
   }
 
   public async create(input: CreateDeckInput): Promise<Deck> {

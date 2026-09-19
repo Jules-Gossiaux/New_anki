@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({
 jest.mock('../../src/infrastructure/repositories/deckRepository', () => ({
   DeckRepository: jest.fn().mockImplementation(() => ({
     listAll: jest.fn().mockResolvedValue([]),
+    getEffectiveDailyLimits: jest.fn(),
   })),
 }));
 

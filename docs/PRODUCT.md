@@ -25,6 +25,8 @@ Phase B MVP: two Android-first interventions around phone use. The implemented b
 Phone-triggered session sizes are configurable independently: three cards after unlock and five cards after application usage by default. Study settings also allow users to hide examples and extra information in every study session without deleting those fields.
 Study selection avoids presenting two cards from the same note consecutively when another note is available. If only cards from that note remain, consecutive directions are allowed.
 
+Each deck can override the global daily limits for new cards and reviews independently. Empty fields inherit the parent deck's effective value; root decks inherit the global application settings. The effective limit and daily progress cover the selected deck and its descendants.
+
 ## Non-goals
 
 No backend, accounts, sync, AI generation, large gamification system, mini-game suite or independent scheduler per exercise type in the MVP.

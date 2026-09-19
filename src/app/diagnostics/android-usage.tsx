@@ -13,6 +13,7 @@ import {
 import AndroidUsageDiagnostics, { type AndroidUsageEvent } from '../../../modules/android-usage';
 import { CardRepository } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
 
 const EVENT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -21,6 +22,7 @@ export default function AndroidUsageDiagnosticsScreen() {
   const db = useSQLiteContext();
   const deckRepository = useMemo(() => new DeckRepository(db), [db]);
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
+  const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [events, setEvents] = useState<AndroidUsageEvent[]>([]);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
@@ -31,11 +33,15 @@ export default function AndroidUsageDiagnosticsScreen() {
   const getAvailableCardCount = useCallback(async () => {
     const decks = await deckRepository.listAll();
     const rootDecks = decks.filter((deck) => deck.parentId === null);
+    const globalSettings = await settingsRepository.get();
     const counts = await Promise.all(
-      rootDecks.map((deck) => cardRepository.getStudyCounts(deck.id, new Date())),
+      rootDecks.map(async (deck) => {
+        const limits = await deckRepository.getEffectiveDailyLimits(deck.id, globalSettings);
+        return cardRepository.getStudyCounts(deck.id, new Date(), limits);
+      }),
     );
     return counts.reduce((total, count) => total + count.new + count.today, 0);
-  }, [cardRepository, deckRepository]);
+  }, [cardRepository, deckRepository, settingsRepository]);
 
   const refresh = useCallback(async () => {
     if (Platform.OS !== 'android' || !AndroidUsageDiagnostics) {

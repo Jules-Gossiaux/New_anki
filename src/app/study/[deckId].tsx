@@ -37,6 +37,7 @@ export default function StudyScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
+  const deckRepository = useMemo(() => new DeckRepository(db), [db]);
   const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
   const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_REVIEW_SETTINGS);
   const scheduler = useMemo(() => new FsrsScheduler(settings), [settings]);
@@ -74,7 +75,7 @@ export default function StudyScreen() {
       if (!deckId) return;
       let queue: Card[];
       if (isIntervention) {
-        const decks = await new DeckRepository(db).listAll();
+        const decks = await deckRepository.listAll();
         const rootDecks = decks.filter((deck) => deck.parentId === null);
         const currentSettings = await settingsRepository.get();
         const priorityDeck = currentSettings.priorityDeckId
@@ -83,18 +84,35 @@ export default function StudyScreen() {
         const queueSources = priorityDeck
           ? [priorityDeck, ...rootDecks.filter((deck) => deck.id !== priorityDeck.id)]
           : rootDecks;
-        const queues = await Promise.all(
-          queueSources.map((source) => cardRepository.listStudyQueue(source.id, new Date())),
+        const queueResults = await Promise.all(
+          queueSources.map(async (source) => {
+            const [sourceQueue, sourceLimits, sourceProgress] = await Promise.all([
+              cardRepository.listStudyQueue(source.id, new Date()),
+              deckRepository.getEffectiveDailyLimits(source.id, currentSettings),
+              cardRepository.getDailyStudyProgress(new Date(), source.id),
+            ]);
+            return {
+              available: sourceQueue,
+              limited: applyDailyLimits(sourceQueue, sourceLimits, sourceProgress),
+            };
+          }),
         );
-        queue = [...new Map(queues.flat().map((card) => [card.id, card])).values()];
+        queue = [
+          ...new Map(
+            queueResults.flatMap((result) => result.available).map((card) => [card.id, card]),
+          ).values(),
+        ];
+        const limitedQueue = [
+          ...new Map(
+            queueResults.flatMap((result) => result.limited).map((card) => [card.id, card]),
+          ).values(),
+        ];
         setDeckName('Révision express');
-        const progress = await cardRepository.getDailyStudyProgress(new Date());
-        const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
         setSettings(currentSettings);
         setCards(interventionLimit ? limitedQueue.slice(0, interventionLimit) : limitedQueue);
         setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
       } else {
-        const deck = await new DeckRepository(db).getById(deckId);
+        const deck = await deckRepository.getById(deckId);
         if (!deck) {
           leaveStudy();
           return;
@@ -102,12 +120,13 @@ export default function StudyScreen() {
         setDeckName(deck.name);
         const currentSettings = await settingsRepository.get();
         const currentNow = new Date();
-        const [loadedQueue, progress] = await Promise.all([
+        const [loadedQueue, progress, limits] = await Promise.all([
           cardRepository.listStudyQueue(deckId, currentNow),
-          cardRepository.getDailyStudyProgress(currentNow),
+          cardRepository.getDailyStudyProgress(currentNow, deckId),
+          deckRepository.getEffectiveDailyLimits(deckId, currentSettings),
         ]);
         queue = loadedQueue;
-        const limitedQueue = applyDailyLimits(queue, currentSettings, progress);
+        const limitedQueue = applyDailyLimits(queue, limits, progress);
         setSettings(currentSettings);
         setCards(limitedQueue);
         setDailyLimitReached(queue.length > 0 && limitedQueue.length === 0);
@@ -120,7 +139,16 @@ export default function StudyScreen() {
       }
       setRevealed(false);
     },
-    [cardRepository, db, deckId, interventionLimit, isIntervention, leaveStudy, settingsRepository],
+    [
+      cardRepository,
+      db,
+      deckId,
+      deckRepository,
+      interventionLimit,
+      isIntervention,
+      leaveStudy,
+      settingsRepository,
+    ],
   );
 
   useEffect(() => {

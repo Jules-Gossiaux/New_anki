@@ -31,6 +31,7 @@ import {
 } from '../../domain/cardStatus';
 import { CardRepository, type StudyCounts } from '../../infrastructure/repositories/cardRepository';
 import { DeckRepository } from '../../infrastructure/repositories/deckRepository';
+import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
 import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
 import { TagRepository } from '../../infrastructure/repositories/tagRepository';
 
@@ -39,6 +40,8 @@ export default function DeckDetailScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const cardRepository = useMemo(() => new CardRepository(db), [db]);
+  const deckRepository = useMemo(() => new DeckRepository(db), [db]);
+  const settingsRepository = useMemo(() => new ReviewSettingsRepository(db), [db]);
   const [deckName, setDeckName] = useState('Deck');
   const [cards, setCards] = useState<Card[]>([]);
   const [cardsRefreshToken, setCardsRefreshToken] = useState(0);
@@ -62,7 +65,7 @@ export default function DeckDetailScreen() {
 
   const load = useCallback(async () => {
     if (!deckId) return;
-    const deck = await new DeckRepository(db).getById(deckId);
+    const deck = await deckRepository.getById(deckId);
     if (!deck) {
       router.back();
       return;
@@ -70,8 +73,10 @@ export default function DeckDetailScreen() {
     setDeckName(deck.name);
     setCards(await cardRepository.listByDeck(deckId));
     setCardsRefreshToken((value) => value + 1);
-    setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date()));
-  }, [cardRepository, db, deckId, router]);
+    const globalSettings = await settingsRepository.get();
+    const limits = await deckRepository.getEffectiveDailyLimits(deckId, globalSettings);
+    setStudyCounts(await cardRepository.getStudyCounts(deckId, new Date(), limits));
+  }, [cardRepository, deckRepository, deckId, router, settingsRepository]);
 
   useFocusEffect(
     useCallback(() => {

@@ -30,6 +30,8 @@ The existing study engine remains the only scheduling engine. Any intervention m
 Global settings also control the number of cards requested by unlock and application-use interventions, and whether examples and extra information are displayed during study. These are presentation/session-size settings only and do not modify persisted notes or FSRS scheduling.
 Study queues now prefer a different note after each card, so the two directions of a note are not shown consecutively when another note is available. The existing due order, availability rules and FSRS behavior are unchanged; repetition is allowed when only one note remains.
 
+Daily new-card and review limits can additionally be overridden per deck. A root deck inherits the global application settings by default, and a child deck inherits its parent's effective values. Overrides are independent for new cards and reviews, apply to the selected deck subtree, and do not affect FSRS state or review history.
+
 The MVP is now closed for the supported Android scope. Follow-up hardening includes repeated validation after reboot, force-stop and OEM battery restrictions, selected-application configuration, and Google Play policy review. These items must not be presented as cross-platform guarantees.
 
 ## Phase A completion audit
