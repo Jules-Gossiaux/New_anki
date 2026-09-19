@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added independent settings for unlock/application intervention sizes and an option to hide examples and extra information during study.
 - Closed the supported Android MVP scope, including configurable phone-use review interventions and documented remaining platform hardening work.
 - Made the Android usage reminder duration configurable, with a three-minute default, and documented the force-stop limitation.
 - Added an explicit in-app modal and cancellation for Anki packages containing media. Image/audio media import remains deferred.

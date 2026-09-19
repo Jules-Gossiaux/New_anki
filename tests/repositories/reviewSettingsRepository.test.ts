@@ -30,11 +30,23 @@ describe('ReviewSettingsRepository', () => {
     await new ReviewSettingsRepository(db).save(settings);
 
     expect(db.execAsync).toHaveBeenNthCalledWith(1, 'BEGIN IMMEDIATE;');
-    expect(db.runAsync).toHaveBeenCalledTimes(7);
+    expect(db.runAsync).toHaveBeenCalledTimes(10);
     expect(db.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO app_settings'),
       'review.usage_reminder_minutes',
       '3',
+      expect.any(String),
+    );
+    expect(db.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO app_settings'),
+      'review.unlock_intervention_cards',
+      '3',
+      expect.any(String),
+    );
+    expect(db.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO app_settings'),
+      'review.app_usage_intervention_cards',
+      '5',
       expect.any(String),
     );
     expect(db.execAsync).toHaveBeenLastCalledWith('COMMIT;');
