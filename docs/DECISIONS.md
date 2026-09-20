@@ -34,9 +34,15 @@ The card editor lets the user choose `both`, `forward` (`Mot → traduction`) or
 
 ## ADR-0009 - Anki import preservation and replacement (accepted; supported text slice implemented)
 
-Import locally from `.apkg`, preserving supported source cards and progress as faithfully as possible. Repeated imports must avoid duplicates. Confirmed replacement makes imported content and valid scheduling authoritative while preserving append-only local review history. Supplementary fields retain their labels in extra information. Reuse decks by full path, explicitly report unsupported templates, and import otherwise valid cards even when a media file fails, with a visible per-card missing-media notice. Export remains deferred.
+Import locally from `.apkg`, preserving supported source cards and progress as faithfully as possible. Repeated imports must avoid duplicates. Confirmed replacement makes imported content and valid scheduling authoritative while preserving append-only local review history. Supplementary fields retain their labels in extra information. Reuse decks by full path, explicitly report unsupported templates, and import otherwise valid cards even when a media file fails, with a visible per-card missing-media notice. The supported export contract is documented separately in ADR-0015.
 
 The [import contract](ANKI_IMPORT.md) records the supported text-card slice and remaining compatibility investigations. Exact FSRS transfer and legacy scheduling conversion are only supported where the source state is interpretable; no automatic reset of imported progress or improvised scheduler conversion is authorized. Media and complex template support remain explicitly deferred.
+
+## ADR-0015 - Supported `.apkg` export (accepted)
+
+Export targets the selected deck and all descendants. It includes supported text notes, both existing direction cards, tags, supplementary fields, current scheduling state and append-only review history. Effective per-deck daily limits and the configured learning/relearning steps are written to the Anki deck options. Phone-use intervention settings remain Vocabulary-specific.
+
+Vocabulary currently relies on the pinned `ts-fsrs` defaults and does not expose custom FSRS weights or desired retention. The exporter therefore preserves per-card stability, difficulty, last-review data and the known learning settings without inventing unavailable model parameters. Anki applies its own FSRS defaults for subsequent scheduling. Stable identifiers are derived from local IDs and the local note ID is exported as the Anki GUID so a re-import can match existing Vocabulary notes and direction cards. Media and advanced templates remain unsupported.
 
 ## ADR-0010 - Recursive soft deletion of decks (accepted)
 
