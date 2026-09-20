@@ -35,7 +35,8 @@ export async function exportAnkiPackage(
     created_at: string;
     updated_at: string;
   }>(
-    `SELECT DISTINCT notes.id, note_type, front, back, example, extra, created_at, updated_at
+    `SELECT DISTINCT notes.id, notes.note_type, notes.front, notes.back, notes.example,
+            notes.extra, notes.created_at, notes.updated_at
      FROM notes JOIN cards ON cards.note_id = notes.id
      WHERE cards.deck_id IN (${placeholders}) AND cards.deleted_at IS NULL AND notes.deleted_at IS NULL
      ORDER BY notes.created_at, notes.id`,
