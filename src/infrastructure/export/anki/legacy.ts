@@ -294,7 +294,7 @@ async function createLegacyDatabase(input: ExportInput): Promise<Uint8Array> {
           : 0;
       const ord = card.template_key === 'basic-reverse' ? 1 : 0;
       await database.runAsync(
-        'INSERT INTO cards (id, nid, did, ord, mod, usn, type, queue, due, ivl, factor, reps, lapses, left, odue, odid, flags, data) VALUES (?, ?, ?, ?, ?, -1, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?)',
+        'INSERT INTO cards (id, nid, did, ord, mod, usn, type, queue, due, ivl, factor, reps, lapses, left, odue, odid, flags, data) VALUES (?, ?, ?, ?, ?, -1, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?)',
         cardId,
         stableId(`note:${note.id}`),
         stableId(`deck:${card.deck_id}`),

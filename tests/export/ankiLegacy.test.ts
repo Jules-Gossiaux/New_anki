@@ -24,6 +24,8 @@ jest.mock('expo-sqlite', () => ({
   })),
 }));
 
+const mockedOpenDatabase = jest.requireMock('expo-sqlite').openDatabaseAsync as jest.Mock;
+
 describe('Anki export package', () => {
   it('writes a collection and an empty media manifest', async () => {
     const bytes = await buildAnkiPackage({
@@ -79,5 +81,12 @@ describe('Anki export package', () => {
     const archive = unzipSync(bytes);
     expect(archive['collection.anki2']).toBeDefined();
     expect(new TextDecoder().decode(archive.media)).toBe('{}');
+    const database = await mockedOpenDatabase.mock.results[0].value;
+    const cardInsert = database.runAsync.mock.calls.find(([query]: [string]) =>
+      query.includes('INSERT INTO cards'),
+    );
+    expect(cardInsert?.[0]).toContain('lapses, left, odue, odid, flags, data) VALUES');
+    expect(cardInsert?.[0]).toContain('?, 0, 0, 0, 0, ?)');
+    expect(cardInsert?.at(-1)).toBe('{}');
   });
 });
