@@ -1,10 +1,10 @@
 # Anki import contract
 
-Status: first text-card import slice implemented. Image and audio media import is explicitly deferred because Android validation found it unreliable.
+Status: text-card import and export are implemented. Image and audio media remain explicitly unsupported because Android validation found media transfer unreliable.
 
 ## Accepted scope
 
-Import `.apkg` packages locally, without a server. Preserve supported decks and subdecks, text notes, existing card directions, tags, supplementary fields, review history and scheduling information as faithfully as possible. Export remains deferred. Do not generate a reverse card unless it exists in the source package.
+Import `.apkg` packages locally, without a server. Preserve supported decks and subdecks, text notes, existing card directions, tags, supplementary fields, review history and scheduling information as faithfully as possible. Export a selected deck with all descendants using the same supported text-card contract. Do not generate a reverse card unless it exists in the source package.
 
 Support basic vocabulary templates first. Unsupported cloze cards and advanced templates are skipped with explicit reasons and counts in the import report. A familiar note-type name is not enough to establish compatibility: inspect the fields and template semantics. Show the front/back mapping in the preview when it cannot be established reliably. Preserve additional fields, with their original labels, in the note's extra information.
 
@@ -19,6 +19,14 @@ The priority is preserving existing learning progress, including the next due da
 - Preserve source date units and day-boundary metadata. Vocabulary currently uses UTC calendar days; the mapping from Anki day boundaries must be explicit and tested before scheduling imports ship.
 
 The user must enable Anki's **Include Scheduling Information** export option to include their progress. **Include Media** is not currently supported: images and audio are ignored. These options are described in the [Anki export manual](https://docs.ankiweb.net/exporting.html). Legacy and modern package variants must be investigated and listed separately in the eventual compatibility matrix.
+
+## Export contract
+
+Export is available from a deck's card-management screen. It creates a legacy-compatible `.apkg` containing the selected deck and all descendants. Each exported note keeps a stable Vocabulary identifier as its Anki GUID, and each card/deck identifier is deterministically derived from the local identifier. Re-importing the package can therefore match the original Vocabulary note and direction cards instead of creating duplicates.
+
+The export maps the settings Vocabulary currently owns: effective per-deck new-card and review limits, learning steps, relearning steps, current due/state fields, FSRS stability/difficulty where present, and append-only review history. Vocabulary does not currently expose custom FSRS weights or desired retention, so the exporter does not invent these values; Anki's own FSRS defaults remain responsible for future scheduling after import. Phone-use intervention settings are never exported.
+
+Media files are not exported. The current data model does not import or store supported Anki media, and the exporter writes an empty media manifest. Rich HTML, cloze cards and advanced templates remain outside the compatibility contract. The export must be opened in Anki and checked against the report/test fixtures before claiming exact scheduling equivalence.
 
 ## Duplicate detection and confirmed replacement
 

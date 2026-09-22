@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `.apkg` export for a selected deck and its sub-decks, including text cards, tags, review history, current FSRS state, effective daily limits and stable identifiers for re-import.
 - Added independent settings for unlock/application intervention sizes and an option to hide examples and extra information during study.
 - Study queues now avoid consecutive cards from the same note whenever another note is available.
 - Added independent per-deck daily limits for new cards and reviews, with parent-to-child inheritance and global defaults for root decks.

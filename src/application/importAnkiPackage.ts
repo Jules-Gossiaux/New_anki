@@ -88,13 +88,15 @@ export async function importAnkiCollection(
       const firstCard = note.cards[0];
       const deckName = sourceDecks.get(firstCard?.sourceDeckId) ?? 'Imported Anki';
       const deckId = await ensureDeck(deckName, decks, deckIds);
-      const localNoteId = await mappedId(
-        db,
-        'anki_note_mappings',
-        importId,
-        note.sourceId,
-        'note_id',
-      );
+      const localNoteId =
+        (await mappedId(db, 'anki_note_mappings', importId, note.sourceId, 'note_id')) ??
+        (
+          await db.getFirstAsync<{ id: string }>(
+            'SELECT id FROM notes WHERE id = ? AND deleted_at IS NULL',
+            note.sourceGuid,
+          )
+        )?.id ??
+        null;
       const noteId =
         localNoteId ??
         (
@@ -136,24 +138,30 @@ export async function importAnkiCollection(
           sourceCard.sourceId,
           'card_id',
         );
-        const card = localCardId ? await cards.getById(localCardId) : null;
+        const direction =
+          sourceCard.direction === 'reverse' ? CARD_TEMPLATES.reverse : CARD_TEMPLATES.forward;
+        const stableCard = localCardId
+          ? null
+          : await db.getFirstAsync<{ id: string }>(
+              'SELECT id FROM cards WHERE note_id = ? AND template_key = ? AND deleted_at IS NULL',
+              noteId,
+              direction,
+            );
+        const card = await cards.getById(localCardId ?? stableCard?.id ?? '');
         const localCardIdToUse =
           card?.id ??
           (
             await cards.create({
               noteId,
               deckId,
-              templateKey:
-                sourceCard.direction === 'reverse'
-                  ? CARD_TEMPLATES.reverse
-                  : CARD_TEMPLATES.forward,
+              templateKey: direction,
             })
           ).id;
         if (card) {
           await db.runAsync(
             'UPDATE cards SET deck_id = ?, template_key = ?, updated_at = ? WHERE id = ?',
             deckId,
-            sourceCard.direction === 'reverse' ? CARD_TEMPLATES.reverse : CARD_TEMPLATES.forward,
+            direction,
             new Date().toISOString(),
             localCardIdToUse,
           );

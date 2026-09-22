@@ -1,5 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { shareAsync } from 'expo-sharing';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -34,6 +35,7 @@ import { DeckRepository } from '../../infrastructure/repositories/deckRepository
 import { ReviewSettingsRepository } from '../../infrastructure/repositories/reviewSettingsRepository';
 import { NoteRepository } from '../../infrastructure/repositories/noteRepository';
 import { TagRepository } from '../../infrastructure/repositories/tagRepository';
+import { exportAnkiPackage } from '../../application/exportAnkiPackage';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
@@ -210,6 +212,21 @@ export default function DeckDetailScreen() {
     ]);
   };
 
+  const exportDeck = async () => {
+    if (!deckId) return;
+    try {
+      const settings = await settingsRepository.get();
+      const file = await exportAnkiPackage(db, deckId, settings);
+      await shareAsync(file.uri, {
+        mimeType: 'application/zip',
+        dialogTitle: 'Exporter ce deck vers Anki',
+        UTI: 'org.ankiweb.apkg',
+      });
+    } catch (error) {
+      Alert.alert('Export impossible', error instanceof Error ? error.message : 'Erreur inconnue');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
@@ -227,9 +244,22 @@ export default function DeckDetailScreen() {
               {deckName}
             </Text>
           </View>
-          <Pressable style={styles.addButton} onPress={openCreateModal} accessibilityRole="button">
-            <Text style={styles.addButtonText}>+ Carte</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.exportButton}
+              onPress={() => void exportDeck()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.exportButtonText}>Exporter</Text>
+            </Pressable>
+            <Pressable
+              style={styles.addButton}
+              onPress={openCreateModal}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addButtonText}>+ Carte</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.summaryRow}>
@@ -541,6 +571,7 @@ const styles = StyleSheet.create({
   },
   backIcon: { color: '#344054', fontSize: 32, fontWeight: '300', lineHeight: 35, marginLeft: -2 },
   headerCopy: { flex: 1, paddingHorizontal: 13 },
+  headerActions: { alignItems: 'flex-end', gap: 6 },
   eyebrow: { color: '#667085', fontSize: 11, fontWeight: '800', letterSpacing: 1.7 },
   title: { color: '#101828', fontSize: 24, fontWeight: '800', letterSpacing: -0.5, marginTop: 4 },
   addButton: {
@@ -550,6 +581,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  exportButton: {
+    backgroundColor: '#E8F3FF',
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  exportButtonText: { color: '#1268B3', fontSize: 11, fontWeight: '800' },
   summaryRow: {
     alignItems: 'baseline',
     flexDirection: 'row',
